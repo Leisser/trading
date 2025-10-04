@@ -40,3 +40,6 @@ python-decouple==3.8
 # Data processing (minimal)
 pandas==2.0.3
 numpy==1.24.3
+
+# Cryptocurrency and Trading
+ccxt==4.1.77
