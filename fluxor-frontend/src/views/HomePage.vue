@@ -55,25 +55,101 @@
     <!-- Market Data Section -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <h2 class="text-3xl font-bold text-white text-center mb-12">Live Market Data</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      
+      <!-- Top 4 Cryptocurrencies Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
         <div 
-          v-for="crypto in marketData" 
+          v-for="crypto in marketData.slice(0, 4)" 
           :key="crypto.symbol"
           class="bg-white/10 backdrop-blur-md rounded-lg p-6 border border-white/20"
         >
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center">
               <div class="w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                {{ crypto.symbol.charAt(0) }}
+                {{ crypto.rank }}
               </div>
-              <span class="ml-2 text-white font-semibold">{{ crypto.symbol }}</span>
+              <div class="ml-2">
+                <span class="text-white font-semibold">{{ crypto.symbol }}</span>
+                <div class="text-xs text-purple-300">{{ crypto.name }}</div>
+              </div>
             </div>
-            <span :class="crypto.change >= 0 ? 'text-green-400' : 'text-red-400'" class="text-sm">
-              {{ crypto.change >= 0 ? '+' : '' }}{{ crypto.change.toFixed(2) }}%
+            <span :class="crypto.change_24h >= 0 ? 'text-green-400' : 'text-red-400'" class="text-sm">
+              {{ crypto.change_24h >= 0 ? '+' : '' }}{{ crypto.change_24h.toFixed(1) }}%
             </span>
           </div>
-          <div class="text-2xl font-bold text-white">${{ crypto.price.toLocaleString() }}</div>
-          <div class="text-sm text-purple-300">24h Volume: ${{ crypto.volume.toLocaleString() }}</div>
+          <div class="text-2xl font-bold text-white">${{ formatPrice(crypto.price) }}</div>
+          <div class="text-sm text-purple-300 mt-2">
+            <div>24h Vol: ${{ formatVolume(crypto.volume_24h) }}</div>
+            <div>Market Cap: ${{ formatVolume(crypto.market_cap) }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Complete Market Data Table -->
+      <div class="bg-white/5 backdrop-blur-md rounded-lg border border-white/20 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-white/10">
+              <tr class="text-purple-300">
+                <th class="px-4 py-3 text-left font-semibold">#</th>
+                <th class="px-4 py-3 text-left font-semibold">Coin</th>
+                <th class="px-4 py-3 text-right font-semibold">Price</th>
+                <th class="px-4 py-3 text-right font-semibold">1h</th>
+                <th class="px-4 py-3 text-right font-semibold">24h</th>
+                <th class="px-4 py-3 text-right font-semibold">7d</th>
+                <th class="px-4 py-3 text-right font-semibold">30d</th>
+                <th class="px-4 py-3 text-right font-semibold">24h Volume</th>
+                <th class="px-4 py-3 text-right font-semibold">Circulating Supply</th>
+                <th class="px-4 py-3 text-right font-semibold">Total Supply</th>
+                <th class="px-4 py-3 text-right font-semibold">Market Cap</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/10">
+              <tr 
+                v-for="crypto in marketData" 
+                :key="crypto.symbol"
+                class="hover:bg-white/5 transition-colors"
+              >
+                <td class="px-4 py-3 text-purple-300">{{ crypto.rank }}</td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center">
+                    <div class="w-6 h-6 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold text-xs mr-2">
+                      {{ crypto.symbol.charAt(0) }}
+                    </div>
+                    <div>
+                      <div class="text-white font-semibold">{{ crypto.symbol }}</div>
+                      <div class="text-purple-300 text-xs">{{ crypto.name }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-white font-semibold text-right">${{ formatPrice(crypto.price) }}</td>
+                <td class="px-4 py-3 text-right">
+                  <span :class="crypto.change_1h >= 0 ? 'text-green-400' : 'text-red-400'">
+                    {{ crypto.change_1h >= 0 ? '+' : '' }}{{ crypto.change_1h.toFixed(1) }}%
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <span :class="crypto.change_24h >= 0 ? 'text-green-400' : 'text-red-400'">
+                    {{ crypto.change_24h >= 0 ? '+' : '' }}{{ crypto.change_24h.toFixed(1) }}%
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <span :class="crypto.change_7d >= 0 ? 'text-green-400' : 'text-red-400'">
+                    {{ crypto.change_7d >= 0 ? '+' : '' }}{{ crypto.change_7d.toFixed(1) }}%
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <span :class="crypto.change_30d >= 0 ? 'text-green-400' : 'text-red-400'">
+                    {{ crypto.change_30d >= 0 ? '+' : '' }}{{ crypto.change_30d.toFixed(1) }}%
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-purple-300 text-right">${{ formatVolume(crypto.volume_24h) }}</td>
+                <td class="px-4 py-3 text-purple-300 text-right">{{ formatSupply(crypto.circulating_supply) }}</td>
+                <td class="px-4 py-3 text-purple-300 text-right">{{ formatSupply(crypto.total_supply) }}</td>
+                <td class="px-4 py-3 text-white font-semibold text-right">${{ formatVolume(crypto.market_cap) }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -205,13 +281,188 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 
-// Mock market data - in production this would come from the API
+// Real cryptocurrency market data
 const marketData = ref([
-  { symbol: 'BTC', price: 43250.50, change: 2.34, volume: 2847293847 },
-  { symbol: 'ETH', price: 2650.75, change: -1.23, volume: 1829475632 },
-  { symbol: 'BNB', price: 315.20, change: 0.87, volume: 847392847 },
-  { symbol: 'ADA', price: 0.52, change: 3.45, volume: 392847392 }
+  { 
+    rank: 1, 
+    symbol: 'BTC', 
+    name: 'Bitcoin', 
+    price: 122104, 
+    change_1h: 0.1, 
+    change_24h: 0.5, 
+    change_7d: 11.5, 
+    change_30d: 11.0, 
+    volume_24h: 36459039042, 
+    circulating_supply: 19928203, 
+    total_supply: 19930000, 
+    market_cap: 2433318759440 
+  },
+  { 
+    rank: 2, 
+    symbol: 'ETH', 
+    name: 'Ethereum', 
+    price: 4486.01, 
+    change_1h: 0.4, 
+    change_24h: 1.3, 
+    change_7d: 12.0, 
+    change_30d: 4.9, 
+    volume_24h: 21603209113, 
+    circulating_supply: 120702395, 
+    total_supply: 120700000, 
+    market_cap: 541077386471 
+  },
+  { 
+    rank: 3, 
+    symbol: 'XRP', 
+    name: 'XRP', 
+    price: 2.95, 
+    change_1h: 0.3, 
+    change_24h: 2.8, 
+    change_7d: 5.8, 
+    change_30d: 5.9, 
+    volume_24h: 3997658883, 
+    circulating_supply: 59871700035, 
+    total_supply: 99990000000, 
+    market_cap: 176729111579 
+  },
+  { 
+    rank: 4, 
+    symbol: 'USDT', 
+    name: 'Tether', 
+    price: 1.00, 
+    change_1h: 0.0, 
+    change_24h: 0.0, 
+    change_7d: 0.0, 
+    change_30d: 0.0, 
+    volume_24h: 72647530609, 
+    circulating_supply: 176241404874, 
+    total_supply: 176240000000, 
+    market_cap: 176302387916 
+  },
+  { 
+    rank: 5, 
+    symbol: 'BNB', 
+    name: 'BNB', 
+    price: 1148.90, 
+    change_1h: 0.4, 
+    change_24h: 1.8, 
+    change_7d: 18.6, 
+    change_30d: 36.3, 
+    volume_24h: 2966782382, 
+    circulating_supply: 139184915, 
+    total_supply: 139180000, 
+    market_cap: 160129362550 
+  },
+  { 
+    rank: 6, 
+    symbol: 'SOL', 
+    name: 'Solana', 
+    price: 227.85, 
+    change_1h: 0.4, 
+    change_24h: 2.4, 
+    change_7d: 13.0, 
+    change_30d: 12.1, 
+    volume_24h: 4858307248, 
+    circulating_supply: 545359468, 
+    total_supply: 611160000, 
+    market_cap: 124277857925 
+  },
+  { 
+    rank: 7, 
+    symbol: 'USDC', 
+    name: 'USDC', 
+    price: 1.00, 
+    change_1h: 0.0, 
+    change_24h: 0.0, 
+    change_7d: 0.0, 
+    change_30d: 0.0, 
+    volume_24h: 10227412498, 
+    circulating_supply: 75366144659, 
+    total_supply: 75370000000, 
+    market_cap: 75384493126 
+  },
+  { 
+    rank: 8, 
+    symbol: 'STETH', 
+    name: 'Lido Staked Ether', 
+    price: 4481.47, 
+    change_1h: 0.3, 
+    change_24h: 1.2, 
+    change_7d: 12.3, 
+    change_30d: 4.9, 
+    volume_24h: 14825050, 
+    circulating_supply: 8524860, 
+    total_supply: 8520000, 
+    market_cap: 38199942698 
+  },
+  { 
+    rank: 9, 
+    symbol: 'DOGE', 
+    name: 'Dogecoin', 
+    price: 0.2501, 
+    change_1h: 0.4, 
+    change_24h: 3.9, 
+    change_7d: 9.1, 
+    change_30d: 18.6, 
+    volume_24h: 2033001875, 
+    circulating_supply: 151186236384, 
+    total_supply: 151210000000, 
+    market_cap: 37829049657 
+  },
+  { 
+    rank: 10, 
+    symbol: 'TRX', 
+    name: 'TRON', 
+    price: 0.3401, 
+    change_1h: 0.0, 
+    change_24h: 0.7, 
+    change_7d: 0.7, 
+    change_30d: 1.5, 
+    volume_24h: 463902500, 
+    circulating_supply: 94667155456, 
+    total_supply: 94670000000, 
+    market_cap: 32187004998 
+  }
 ])
+
+// Formatting functions
+const formatPrice = (price: number): string => {
+  if (price >= 1000) {
+    return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  } else if (price >= 1) {
+    return price.toFixed(2)
+  } else {
+    return price.toFixed(4)
+  }
+}
+
+const formatVolume = (volume: number): string => {
+  if (volume >= 1e12) {
+    return (volume / 1e12).toFixed(1) + 'T'
+  } else if (volume >= 1e9) {
+    return (volume / 1e9).toFixed(1) + 'B'
+  } else if (volume >= 1e6) {
+    return (volume / 1e6).toFixed(1) + 'M'
+  } else if (volume >= 1e3) {
+    return (volume / 1e3).toFixed(1) + 'K'
+  } else {
+    return volume.toFixed(0)
+  }
+}
+
+const formatSupply = (supply: number): string => {
+  if (supply >= 1e12) {
+    return (supply / 1e12).toFixed(1) + 'T'
+  } else if (supply >= 1e9) {
+    return (supply / 1e9).toFixed(1) + 'B'
+  } else if (supply >= 1e6) {
+    return (supply / 1e6).toFixed(1) + 'M'
+  } else if (supply >= 1e3) {
+    return (supply / 1e3).toFixed(1) + 'K'
+  } else {
+    return supply.toFixed(0)
+  }
+}
 
 const scrollToFeatures = () => {
   document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })
