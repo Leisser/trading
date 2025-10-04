@@ -117,7 +117,20 @@ jobs:
           echo "WARNING: Dashboard service image not found, skipping..."
         fi
     
+    - name: Check server configuration
+      run: |
+        if [ -z "${{ secrets.SERVER_HOST }}" ]; then
+          echo "WARNING: SERVER_HOST secret not configured. Skipping deployment."
+          echo "To enable deployment, configure the following secrets in your repository:"
+          echo "- SERVER_HOST: Your server IP address"
+          echo "- SERVER_USER: SSH username"
+          echo "- SERVER_SSH_KEY: SSH private key"
+          exit 0
+        fi
+        echo "Server configuration found. Proceeding with deployment..."
+
     - name: Deploy to server
+      if: secrets.SERVER_HOST != ''
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_HOST }}
