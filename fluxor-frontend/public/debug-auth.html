@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Auth Debug - Fluxor Trading</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+        }
+        
+        .test-section h3 {
+            margin-top: 0;
+            color: #374151;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+        
+        .status.info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+        }
+        
+        .btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            margin: 5px;
+            transition: background 0.2s;
+        }
+        
+        .btn:hover {
+            background: #4f46e5;
+        }
+        
+        .btn.google {
+            background: #4285f4;
+        }
+        
+        .btn.google:hover {
+            background: #3367d6;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #6366f1;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e5e7eb;
+            border-top: 2px solid #6366f1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Firebase Auth Debug</h1>
+        <p style="text-align: center; color: #6b7280; margin-bottom: 30px;">
+            Debug Firebase authentication issues
+        </p>
+        
+        <!-- Firebase Status -->
+        <div class="test-section">
+            <h3>🔧 Firebase Status</h3>
+            <div id="firebaseStatus" class="status info">Initializing...</div>
+            <button class="btn" onclick="testFirebaseInit()">Test Firebase Init</button>
+        </div>
+        
+        <!-- Google Sign-In Test -->
+        <div class="test-section">
+            <h3>🔑 Google Sign-In Test</h3>
+            <div id="googleStatus" class="status info">Ready to test</div>
+            <button class="btn google" onclick="testGoogleSignIn()">Test Google Sign-In</button>
+        </div>
+        
+        <!-- Email/Password Test -->
+        <div class="test-section">
+            <h3>📧 Email/Password Test</h3>
+            <div id="emailStatus" class="status info">Ready to test</div>
+            <div class="form-group">
+                <label>Email:</label>
+                <input type="email" id="email" placeholder="test@example.com" value="test@example.com">
+            </div>
+            <div class="form-group">
+                <label>Password:</label>
+                <input type="password" id="password" placeholder="password123" value="password123">
+            </div>
+            <button class="btn" onclick="testEmailSignIn()">Test Email Sign-In</button>
+            <button class="btn" onclick="testEmailSignUp()">Test Email Sign-Up</button>
+        </div>
+        
+        <!-- Backend Test -->
+        <div class="test-section">
+            <h3>🖥️ Backend Test</h3>
+            <div id="backendStatus" class="status info">Ready to test</div>
+            <button class="btn" onclick="testBackendConnection()">Test Backend</button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing...</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js'
+        import { 
+            getAuth, 
+            signInWithPopup, 
+            GoogleAuthProvider, 
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword,
+            signOut,
+            onAuthStateChanged 
+        } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js'
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyC2EjPY7nG7uFyu6l2ymNlTGxTecOD69gU",
+            authDomain: "fluxor-434ed.firebaseapp.com",
+            projectId: "fluxor-434ed",
+            storageBucket: "fluxor-434ed.firebasestorage.app",
+            messagingSenderId: "665456308175",
+            appId: "1:665456308175:web:a990ace4d8dcaf91b62cba",
+            measurementId: "G-6Y3S97KP7T"
+        }
+
+        // Initialize Firebase
+        let app, auth, googleProvider
+
+        window.testFirebaseInit = async () => {
+            showLoading(true)
+            try {
+                app = initializeApp(firebaseConfig)
+                auth = getAuth(app)
+                googleProvider = new GoogleAuthProvider()
+                
+                showStatus('firebaseStatus', 'success', '✅ Firebase initialized successfully')
+                addLog('Firebase initialized successfully')
+            } catch (error) {
+                showStatus('firebaseStatus', 'error', `❌ Firebase init failed: ${error.message}`)
+                addLog(`Firebase init failed: ${error.message}`)
+            } finally {
+                showLoading(false)
+            }
+        }
+
+        window.testGoogleSignIn = async () => {
+            if (!auth) {
+                showStatus('googleStatus', 'error', '❌ Firebase not initialized')
+                return
+            }
+            
+            showLoading(true)
+            try {
+                const result = await signInWithPopup(auth, googleProvider)
+                const idToken = await result.user.getIdToken()
+                
+                showStatus('googleStatus', 'success', `✅ Google sign-in successful! Token: ${idToken.substring(0, 20)}...`)
+                addLog(`Google sign-in successful: ${result.user.email}`)
+                
+                // Test backend connection
+                await testBackendWithToken(idToken, result.user)
+                
+            } catch (error) {
+                showStatus('googleStatus', 'error', `❌ Google sign-in failed: ${error.message}`)
+                addLog(`Google sign-in failed: ${error.message}`)
+            } finally {
+                showLoading(false)
+            }
+        }
+
+        window.testEmailSignIn = async () => {
+            if (!auth) {
+                showStatus('emailStatus', 'error', '❌ Firebase not initialized')
+                return
+            }
+            
+            const email = document.getElementById('email').value
+            const password = document.getElementById('password').value
+            
+            if (!email || !password) {
+                showStatus('emailStatus', 'error', '❌ Please enter email and password')
+                return
+            }
+            
+            showLoading(true)
+            try {
+                const result = await signInWithEmailAndPassword(auth, email, password)
+                const idToken = await result.user.getIdToken()
+                
+                showStatus('emailStatus', 'success', `✅ Email sign-in successful! Token: ${idToken.substring(0, 20)}...`)
+                addLog(`Email sign-in successful: ${result.user.email}`)
+                
+                // Test backend connection
+                await testBackendWithToken(idToken, result.user)
+                
+            } catch (error) {
+                showStatus('emailStatus', 'error', `❌ Email sign-in failed: ${error.message}`)
+                addLog(`Email sign-in failed: ${error.message}`)
+            } finally {
+                showLoading(false)
+            }
+        }
+
+        window.testEmailSignUp = async () => {
+            if (!auth) {
+                showStatus('emailStatus', 'error', '❌ Firebase not initialized')
+                return
+            }
+            
+            const email = document.getElementById('email').value
+            const password = document.getElementById('password').value
+            
+            if (!email || !password) {
+                showStatus('emailStatus', 'error', '❌ Please enter email and password')
+                return
+            }
+            
+            showLoading(true)
+            try {
+                const result = await createUserWithEmailAndPassword(auth, email, password)
+                const idToken = await result.user.getIdToken()
+                
+                showStatus('emailStatus', 'success', `✅ Email sign-up successful! Token: ${idToken.substring(0, 20)}...`)
+                addLog(`Email sign-up successful: ${result.user.email}`)
+                
+                // Test backend connection
+                await testBackendWithToken(idToken, result.user)
+                
+            } catch (error) {
+                showStatus('emailStatus', 'error', `❌ Email sign-up failed: ${error.message}`)
+                addLog(`Email sign-up failed: ${error.message}`)
+            } finally {
+                showLoading(false)
+            }
+        }
+
+        window.testBackendConnection = async () => {
+            showLoading(true)
+            try {
+                const response = await fetch('http://localhost:8000/api/health/')
+                if (response.ok) {
+                    showStatus('backendStatus', 'success', '✅ Backend connection successful')
+                    addLog('Backend connection successful')
+                } else {
+                    showStatus('backendStatus', 'error', `❌ Backend connection failed: ${response.status}`)
+                    addLog(`Backend connection failed: ${response.status}`)
+                }
+            } catch (error) {
+                showStatus('backendStatus', 'error', `❌ Backend connection failed: ${error.message}`)
+                addLog(`Backend connection failed: ${error.message}`)
+            } finally {
+                showLoading(false)
+            }
+        }
+
+        async function testBackendWithToken(idToken, user) {
+            try {
+                const response = await fetch('http://localhost:8000/api/firebase-auth/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id_token: idToken,
+                        firebase_user: {
+                            uid: user.uid,
+                            email: user.email,
+                            displayName: user.displayName,
+                            photoURL: user.photoURL,
+                            emailVerified: user.emailVerified,
+                            phoneNumber: user.phoneNumber
+                        }
+                    })
+                })
+                
+                if (response.ok) {
+                    const data = await response.json()
+                    addLog(`✅ Backend authentication successful: ${data.message}`)
+                } else {
+                    const error = await response.json()
+                    addLog(`❌ Backend authentication failed: ${error.error}`)
+                }
+            } catch (error) {
+                addLog(`❌ Backend request failed: ${error.message}`)
+            }
+        }
+
+        // Helper functions
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none'
+        }
+
+        function showStatus(elementId, type, message) {
+            const element = document.getElementById(elementId)
+            element.className = `status ${type}`
+            element.textContent = message
+        }
+
+        function addLog(message) {
+            console.log(message)
+            // You could also add a log display area here
+        }
+
+        // Initialize Firebase on page load
+        testFirebaseInit()
+    </script>
+</body>
+</html>

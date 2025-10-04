@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Authentication Test - Fluxor Trading</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        .flow-step {
+            background: #f8f9fa;
+            border-left: 4px solid #1e3a8a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            text-align: left;
+        }
+        
+        .flow-step h3 {
+            color: #1e3a8a;
+            margin: 0 0 10px 0;
+        }
+        
+        .btn {
+            background: #1e3a8a;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 500;
+            margin: 10px;
+            transition: background 0.2s;
+            font-size: 16px;
+        }
+        
+        .btn:hover {
+            background: #1e40af;
+        }
+        
+        .btn.google {
+            background: #4285f4;
+        }
+        
+        .btn.google:hover {
+            background: #3367d6;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+        
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+        
+        .status.info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+        }
+        
+        .form-group {
+            margin: 15px 0;
+            text-align: left;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #1e3a8a;
+        }
+        
+        .flow-diagram {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+        
+        .flow-arrow {
+            font-size: 24px;
+            color: #1e3a8a;
+            margin: 0 10px;
+        }
+        
+        .access-denied {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .flow-diagram {
+                flex-direction: column;
+            }
+            .flow-arrow {
+                transform: rotate(90deg);
+                margin: 10px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Dashboard Superuser Authentication</h1>
+        <p style="color: #6b7280; margin-bottom: 30px;">
+            Test the dashboard authentication flow with superuser verification
+        </p>
+        
+        <div class="flow-diagram">
+            <div class="flow-step">
+                <h3>1. Frontend</h3>
+                <p>User signs in with Firebase (Google or Email/Password)</p>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+                <h3>2. Backend</h3>
+                <p>Validates Firebase token AND checks superuser status</p>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+                <h3>3. Result</h3>
+                <p>If superuser: JWT tokens. If not: Access denied message</p>
+            </div>
+        </div>
+        
+        <div id="status" class="status info">Ready to test dashboard authentication</div>
+        
+        <div style="margin: 30px 0;">
+            <button class="btn google" onclick="testGoogleSignIn()">🔑 Google Sign-In (Superuser)</button>
+            <button class="btn" onclick="testEmailSignIn()">📧 Email Sign-In (Superuser)</button>
+        </div>
+        
+        <div class="form-group">
+            <label>Email (Superuser):</label>
+            <input type="email" id="email" placeholder="admin@fluxor.com" value="admin@fluxor.com">
+        </div>
+        
+        <div class="form-group">
+            <label>Password:</label>
+            <input type="password" id="password" placeholder="password123" value="password123">
+        </div>
+        
+        <div style="margin: 20px 0;">
+            <button class="btn" onclick="testEmailSignUp()">📝 Create Superuser Account</button>
+        </div>
+        
+        <div id="flowLog" style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-top: 20px; text-align: left; display: none;">
+            <h3>🔄 Dashboard Authentication Flow Log</h3>
+            <div id="flowDetails"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js'
+        import { 
+            getAuth, 
+            signInWithPopup, 
+            GoogleAuthProvider, 
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword
+        } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js'
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyC2EjPY7nG7uFyu6l2ymNlTGxTecOD69gU",
+            authDomain: "fluxor-434ed.firebaseapp.com",
+            projectId: "fluxor-434ed",
+            storageBucket: "fluxor-434ed.firebasestorage.app",
+            messagingSenderId: "665456308175",
+            appId: "1:665456308175:web:a990ace4d8dcaf91b62cba",
+            measurementId: "G-6Y3S97KP7T"
+        }
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig)
+        const auth = getAuth(app)
+        const googleProvider = new GoogleAuthProvider()
+        
+        googleProvider.addScope('email')
+        googleProvider.addScope('profile')
+        googleProvider.setCustomParameters({
+            prompt: 'select_account'
+        })
+
+        function logStep(step, message, success = true) {
+            const flowLog = document.getElementById('flowLog')
+            const flowDetails = document.getElementById('flowDetails')
+            
+            flowLog.style.display = 'block'
+            
+            const timestamp = new Date().toLocaleTimeString()
+            const statusIcon = success ? '✅' : '❌'
+            const stepDiv = document.createElement('div')
+            stepDiv.innerHTML = `<strong>${step}:</strong> ${statusIcon} ${message} <span style="color: #666;">(${timestamp})</span>`
+            stepDiv.style.marginBottom = '10px'
+            stepDiv.style.padding = '8px'
+            stepDiv.style.background = success ? '#f0f9ff' : '#fef2f2'
+            stepDiv.style.borderRadius = '4px'
+            
+            flowDetails.appendChild(stepDiv)
+            flowLog.scrollTop = flowLog.scrollHeight
+        }
+
+        async function testDashboardAuth(idToken, user) {
+            try {
+                logStep('Step 2', 'Sending Firebase token to dashboard authentication endpoint...')
+                
+                const response = await fetch('http://localhost:8000/api/firebase-dashboard-auth/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id_token: idToken,
+                        firebase_user: {
+                            uid: user.uid,
+                            email: user.email,
+                            displayName: user.displayName,
+                            photoURL: user.photoURL,
+                            emailVerified: user.emailVerified,
+                            phoneNumber: user.phoneNumber
+                        }
+                    })
+                })
+                
+                if (response.ok) {
+                    const data = await response.json()
+                    logStep('Step 2', `Dashboard authentication successful! JWT tokens received.`)
+                    logStep('Step 3', `Access granted: ${data.message}`)
+                    showStatus('success', '🎉 Dashboard access granted! Superuser authentication successful.')
+                    
+                    return { success: true, data }
+                } else {
+                    const error = await response.json()
+                    if (error.requires_superuser) {
+                        logStep('Step 2', `Access denied: ${error.message}`, false)
+                        showStatus('error', `🚫 Access Denied: ${error.message}`)
+                        showAccessDenied(error.message)
+                    } else {
+                        logStep('Step 2', `Dashboard authentication failed: ${error.error}`, false)
+                        showStatus('error', `❌ Dashboard authentication failed: ${error.error}`)
+                    }
+                    return { success: false, error: error.error || error.message }
+                }
+            } catch (error) {
+                logStep('Step 2', `Dashboard request failed: ${error.message}`, false)
+                showStatus('error', `❌ Dashboard connection failed: ${error.message}`)
+                return { success: false, error: error.message }
+            }
+        }
+
+        function showAccessDenied(message) {
+            const accessDeniedDiv = document.createElement('div')
+            accessDeniedDiv.className = 'access-denied'
+            accessDeniedDiv.innerHTML = `
+                <h3>🚫 Access Denied</h3>
+                <p><strong>${message}</strong></p>
+                <p>Only users with superuser credentials can access the dashboard.</p>
+            `
+            
+            const container = document.querySelector('.container')
+            container.appendChild(accessDeniedDiv)
+        }
+
+        // Global functions
+        window.testGoogleSignIn = async () => {
+            showStatus('info', '🔄 Testing Google Sign-In for dashboard access...')
+            document.getElementById('flowLog').style.display = 'none'
+            document.getElementById('flowDetails').innerHTML = ''
+            
+            try {
+                logStep('Step 1', 'Attempting Google sign-in with Firebase...')
+                const result = await signInWithPopup(auth, googleProvider)
+                const idToken = await result.user.getIdToken()
+                
+                logStep('Step 1', `Google sign-in successful: ${result.user.email}`)
+                
+                // Test dashboard authentication
+                await testDashboardAuth(idToken, result.user)
+                
+            } catch (error) {
+                logStep('Step 1', `Google sign-in failed: ${error.message}`, false)
+                showStatus('error', `❌ Google Sign-In failed: ${error.message}`)
+            }
+        }
+
+        window.testEmailSignIn = async () => {
+            const email = document.getElementById('email').value
+            const password = document.getElementById('password').value
+            
+            if (!email || !password) {
+                showStatus('error', '❌ Please enter email and password')
+                return
+            }
+            
+            showStatus('info', '🔄 Testing Email Sign-In for dashboard access...')
+            document.getElementById('flowLog').style.display = 'none'
+            document.getElementById('flowDetails').innerHTML = ''
+            
+            try {
+                logStep('Step 1', 'Attempting email sign-in with Firebase...')
+                const result = await signInWithEmailAndPassword(auth, email, password)
+                const idToken = await result.user.getIdToken()
+                
+                logStep('Step 1', `Email sign-in successful: ${result.user.email}`)
+                
+                // Test dashboard authentication
+                await testDashboardAuth(idToken, result.user)
+                
+            } catch (error) {
+                logStep('Step 1', `Email sign-in failed: ${error.message}`, false)
+                showStatus('error', `❌ Email Sign-In failed: ${error.message}`)
+            }
+        }
+
+        window.testEmailSignUp = async () => {
+            const email = document.getElementById('email').value
+            const password = document.getElementById('password').value
+            
+            if (!email || !password) {
+                showStatus('error', '❌ Please enter email and password')
+                return
+            }
+            
+            showStatus('info', '🔄 Testing Email Sign-Up for dashboard access...')
+            document.getElementById('flowLog').style.display = 'none'
+            document.getElementById('flowDetails').innerHTML = ''
+            
+            try {
+                logStep('Step 1', 'Attempting email sign-up with Firebase...')
+                const result = await createUserWithEmailAndPassword(auth, email, password)
+                const idToken = await result.user.getIdToken()
+                
+                logStep('Step 1', `Email sign-up successful: ${result.user.email}`)
+                
+                // Test dashboard authentication
+                await testDashboardAuth(idToken, result.user)
+                
+            } catch (error) {
+                logStep('Step 1', `Email sign-up failed: ${error.message}`, false)
+                showStatus('error', `❌ Email Sign-Up failed: ${error.message}`)
+            }
+        }
+
+        function showStatus(type, message) {
+            const statusDiv = document.getElementById('status')
+            statusDiv.className = `status ${type}`
+            statusDiv.textContent = message
+        }
+
+        // Initialize
+        showStatus('info', 'Dashboard authentication flow ready. Click a button to test the superuser verification flow.')
+    </script>
+</body>
+</html>

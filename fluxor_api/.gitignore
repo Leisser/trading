@@ -1,0 +1,150 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+static/
+
+# Environment Variables
+.env
+.env.local
+.env.production
+.env.staging
+.env.test
+.venv
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# Trading & Financial Data
+backups/
+logs/
+*.log.*
+trading_data/
+historical_data/
+market_data_cache/
+
+# Cryptocurrency Keys & Wallets (CRITICAL - NEVER COMMIT)
+*.key
+*.pem
+wallets/
+private_keys/
+secrets/
+keystore/
+mnemonic*
+seed*
+
+# Test Coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# Docker
+.dockerignore
+
+# Node.js (for frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# SSL Certificates
+*.crt
+*.key
+*.pem
+ssl/
+
+# Database dumps
+*.dump
+*.sql
+*.db
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Redis dumps
+dump.rdb
+
+# Monitoring and logs
+monitoring/
+prometheus/
+grafana/
+
+# API Keys and Secrets (CRITICAL)
+api_keys/
+config/secrets/
+.secrets/
+
+# Exchange API configurations
+exchange_config/
+trading_credentials/
+
+# Compliance and audit files
+audit_logs/
+compliance_reports/
+kyc_documents/
+
+# Performance profiling
+profile_results/
+*.prof
+
+# Temporary files
+tmp/
+temp/
+cache/

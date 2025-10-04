@@ -1,0 +1,197 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: fluxor_api
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - trading_network
+
+  # Redis Cache and Message Broker
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - trading_network
+
+  # Django Web Application
+  web:
+    build:
+      context: ./fluxor_api
+      dockerfile: Dockerfile
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./fluxor_api:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=fluxor_api.settings
+      - DB_HOST=db
+      - DB_NAME=fluxor_api
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - REDIS_URL=redis://redis:6379/0
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:3001
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - trading_network
+
+  # Celery Worker
+  celery_worker:
+    build:
+      context: ./fluxor_api
+      dockerfile: Dockerfile
+    command: celery -A fluxor_api worker -l info
+    volumes:
+      - ./fluxor_api:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=fluxor_api.settings
+      - DB_HOST=db
+      - DB_NAME=fluxor_api
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - trading_network
+
+  # Celery Beat (Scheduler)
+  celery_beat:
+    build:
+      context: ./fluxor_api
+      dockerfile: Dockerfile
+    command: celery -A fluxor_api beat -l info
+    volumes:
+      - ./fluxor_api:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=fluxor_api.settings
+      - DB_HOST=db
+      - DB_NAME=fluxor_api
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - trading_network
+
+  # Vue.js Frontend - Development Mode
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000
+      - NODE_ENV=development
+    volumes:
+      - ./fluxor-frontend:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - web
+    networks:
+      - trading_network
+
+  # Fluxor Dashboard - Simple HTTP Server
+  dashboard:
+    image: nginx:alpine
+    ports:
+      - "3001:80"
+    volumes:
+      - ./fluxor-dashboard/dist:/usr/share/nginx/html
+      - ./fluxor-dashboard/nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - web
+    networks:
+      - trading_network
+
+  # Trading Tasks Service (Automated Financial Updates)
+  trading_tasks:
+    build:
+      context: ./fluxor_api
+      dockerfile: Dockerfile
+    command: python manage.py run_trading_tasks --interval=1
+    volumes:
+      - ./fluxor_api:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=fluxor_api.settings
+      - DB_HOST=db
+      - DB_NAME=fluxor_api
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - trading_network
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - web
+      - frontend
+      - dashboard
+    networks:
+      - trading_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
+
+networks:
+  trading_network:
+    driver: bridge

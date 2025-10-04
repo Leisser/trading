@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Authentication Test - Simple</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        .btn {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 500;
+            margin: 10px;
+            transition: background 0.2s;
+            font-size: 16px;
+        }
+        
+        .btn:hover {
+            background: #3367d6;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+        
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+        
+        .status.info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+        }
+        
+        .log {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: left;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 Firebase Authentication Test</h1>
+        <p style="color: #6b7280; margin-bottom: 30px;">
+            Simple test to verify Firebase authentication is working
+        </p>
+        
+        <div id="status" class="status info">Ready to test Firebase authentication</div>
+        
+        <div style="margin: 30px 0;">
+            <button class="btn" onclick="testGoogleSignIn()">🔑 Test Google Sign-In</button>
+        </div>
+        
+        <div id="log" class="log" style="display: none;">
+            <h3>🔄 Authentication Log</h3>
+            <div id="logDetails"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js'
+        import { 
+            getAuth, 
+            signInWithPopup, 
+            GoogleAuthProvider
+        } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js'
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyC2EjPY7nG7uFyu6l2ymNlTGxTecOD69gU",
+            authDomain: "fluxor-434ed.firebaseapp.com",
+            projectId: "fluxor-434ed",
+            storageBucket: "fluxor-434ed.firebasestorage.app",
+            messagingSenderId: "665456308175",
+            appId: "1:665456308175:web:a990ace4d8dcaf91b62cba",
+            measurementId: "G-6Y3S97KP7T"
+        }
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig)
+        const auth = getAuth(app)
+        const googleProvider = new GoogleAuthProvider()
+        
+        googleProvider.addScope('email')
+        googleProvider.addScope('profile')
+        googleProvider.setCustomParameters({
+            prompt: 'select_account'
+        })
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log')
+            const logDetails = document.getElementById('logDetails')
+            
+            logDiv.style.display = 'block'
+            
+            const timestamp = new Date().toLocaleTimeString()
+            const stepDiv = document.createElement('div')
+            stepDiv.innerHTML = `<strong>[${timestamp}]</strong> ${message}`
+            stepDiv.style.marginBottom = '8px'
+            stepDiv.style.padding = '8px'
+            stepDiv.style.background = type === 'success' ? '#f0f9ff' : type === 'error' ? '#fef2f2' : '#f9fafb'
+            stepDiv.style.borderRadius = '4px'
+            
+            logDetails.appendChild(stepDiv)
+            logDiv.scrollTop = logDiv.scrollHeight
+        }
+
+        async function testBackendAuth(idToken, user) {
+            try {
+                log('Sending Firebase token to backend...')
+                
+                const response = await fetch('http://localhost:8000/api/firebase-auth/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id_token: idToken,
+                        firebase_user: {
+                            uid: user.uid,
+                            email: user.email,
+                            displayName: user.displayName,
+                            photoURL: user.photoURL,
+                            emailVerified: user.emailVerified,
+                            phoneNumber: user.phoneNumber
+                        }
+                    })
+                })
+                
+                if (response.ok) {
+                    const data = await response.json()
+                    log(`✅ Backend authentication successful! JWT tokens received.`, 'success')
+                    showStatus('success', '🎉 Authentication successful!')
+                    return { success: true, data }
+                } else {
+                    const error = await response.json()
+                    log(`❌ Backend authentication failed: ${error.error}`, 'error')
+                    showStatus('error', `❌ Backend authentication failed: ${error.error}`)
+                    return { success: false, error: error.error }
+                }
+            } catch (error) {
+                log(`❌ Backend request failed: ${error.message}`, 'error')
+                showStatus('error', `❌ Backend connection failed: ${error.message}`)
+                return { success: false, error: error.message }
+            }
+        }
+
+        // Global function
+        window.testGoogleSignIn = async () => {
+            showStatus('info', '🔄 Testing Google Sign-In...')
+            document.getElementById('log').style.display = 'none'
+            document.getElementById('logDetails').innerHTML = ''
+            
+            try {
+                log('Attempting Google sign-in with Firebase...')
+                const result = await signInWithPopup(auth, googleProvider)
+                const idToken = await result.user.getIdToken()
+                
+                log(`✅ Google sign-in successful: ${result.user.email}`)
+                
+                // Test backend authentication
+                await testBackendAuth(idToken, result.user)
+                
+            } catch (error) {
+                log(`❌ Google sign-in failed: ${error.message}`, 'error')
+                showStatus('error', `❌ Google Sign-In failed: ${error.message}`)
+            }
+        }
+
+        function showStatus(type, message) {
+            const statusDiv = document.getElementById('status')
+            statusDiv.className = `status ${type}`
+            statusDiv.textContent = message
+        }
+
+        // Initialize
+        showStatus('info', 'Firebase authentication ready. Click the button to test.')
+        log('Firebase authentication test initialized')
+    </script>
+</body>
+</html>

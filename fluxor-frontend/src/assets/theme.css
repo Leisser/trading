@@ -1,0 +1,44 @@
+:root {
+  /* Brand Colors */
+  --color_primary: #2563eb; /* Blue 600 */
+  --color_primary_dark: #1e40af; /* Blue 800 */
+  --color_secondary: #6366f1; /* Indigo 500 */
+  --color_accent: #f59e42; /* Orange 400 */
+  --color_info: #38bdf8; /* Sky 400 */
+  --color_success: #22c55e; /* Green 500 */
+  --color_warning: #fbbf24; /* Amber 400 */
+  --color_error: #ef4444; /* Red 500 */
+
+  /* Backgrounds & Surfaces */
+  --color_bg: #f8fafc; /* Slate 50 */
+  --color_surface: #ffffff; /* White */
+  --color_surface_alt: #f1f5f9; /* Slate 100 */
+  --color_border: #e5e7eb; /* Slate 200 */
+
+  /* Text */
+  --color_text: #0f172a; /* Slate 900 */
+  --color_text_secondary: #64748b; /* Slate 600 */
+  --color_text_on_primary: #ffffff; /* White */
+  --color_text_on_surface: #0f172a; /* Slate 900 */
+}
+
+[data_theme='dark'] {
+  --color_primary: #60a5fa; /* Blue 400 */
+  --color_primary_dark: #93c5fd; /* Blue 300 */
+  --color_secondary: #818cf8; /* Indigo 400 */
+  --color_accent: #f59e42; /* Orange 400 */
+  --color_info: #7dd3fc; /* Sky 300 */
+  --color_success: #2dd4bf; /* Teal 300 */
+  --color_warning: #fde68a; /* Amber 300 */
+  --color_error: #f87171; /* Red 400 */
+
+  --color_bg: #0f172a; /* Slate 900 */
+  --color_surface: #1e293b; /* Slate 800 */
+  --color_surface_alt: #334155; /* Slate 700 */
+  --color_border: #475569; /* Slate 600 */
+
+  --color_text: #f1f5f9; /* Slate 100 */
+  --color_text_secondary: #94a3b8; /* Slate 400 */
+  --color_text_on_primary: #0f172a; /* Slate 900 */
+  --color_text_on_surface: #f1f5f9; /* Slate 100 */
+}
