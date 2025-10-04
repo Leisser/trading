@@ -176,10 +176,23 @@ jobs:
     if: always()
     
     steps:
+    - name: Check Slack configuration
+      id: check-slack
+      run: |
+        if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+          echo "slack_configured=true" >> $GITHUB_OUTPUT
+          echo "Slack configuration found. Sending notification..."
+        else
+          echo "slack_configured=false" >> $GITHUB_OUTPUT
+          echo "WARNING: SLACK_WEBHOOK_URL secret not configured. Skipping Slack notification."
+          echo "To enable Slack notifications, configure SLACK_WEBHOOK_URL secret in your repository."
+        fi
+
     - name: Notify deployment status
+      if: steps.check-slack.outputs.slack_configured == 'true'
       uses: 8398a7/action-slack@v3
       with:
         status: ${{ job.status }}
         channel: '#deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
       if: always()
