@@ -41,6 +41,15 @@
     <div v-else class="email-auth-form">
       <h2 class="auth-title">{{ isLogin ? 'Sign In' : 'Create Account' }}</h2>
 
+      <!-- Sign Up Message -->
+      <div v-if="showSignUpMessage" class="signup-message">
+        <div class="message-icon">📝</div>
+        <div class="message-content">
+          <h3>No account found!</h3>
+          <p>Please create an account first to continue.</p>
+        </div>
+      </div>
+
       <form @submit.prevent="handleEmailAuth" class="auth-form">
         <div class="form-group">
           <label for="email">Email</label>
@@ -146,6 +155,7 @@ const loading = ref(false)
 const email = ref('')
 const password = ref('')
 const displayName = ref('')
+const showSignUpMessage = ref(false)
 
 // Methods
 const toggleLoginMode = () => {
@@ -162,6 +172,7 @@ const clearForm = () => {
   email.value = ''
   password.value = ''
   displayName.value = ''
+  showSignUpMessage.value = false
 }
 
 const handleEmailAuth = async () => {
@@ -181,6 +192,17 @@ const handleEmailAuth = async () => {
       await authStore.firebaseAuth(result.idToken, result.user)
       router.push(props.redirectTo)
     } else {
+      // Handle specific error cases
+      if (result.error && result.error.includes('Please sign up first')) {
+        // User doesn't have an account, show message and switch to register
+        showSignUpMessage.value = true
+        isLogin.value = false // Switch to register mode
+        isEmailAuth.value = true // Show email form
+        setTimeout(() => {
+          showSignUpMessage.value = false
+        }, 5000) // Hide message after 5 seconds
+        return
+      }
       alert(result.error || 'Authentication failed')
     }
   } catch (error) {
@@ -457,5 +479,47 @@ const handlePasswordReset = async () => {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Sign Up Message Styles */
+.signup-message {
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  animation: slideIn 0.3s ease-out;
+}
+
+.message-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.message-content h3 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.message-content p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #a16207;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

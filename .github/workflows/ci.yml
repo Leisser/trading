@@ -1,0 +1,138 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fluxor_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Set up Node.js 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: |
+          fluxor-frontend/package-lock.json
+          fluxor-dashboard/package-lock.json
+    
+    - name: Install Python dependencies
+      working-directory: ./fluxor_api
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+    
+    - name: Install Frontend dependencies
+      working-directory: ./fluxor-frontend
+      run: npm ci
+    
+    - name: Install Dashboard dependencies
+      working-directory: ./fluxor-dashboard
+      run: npm ci
+    
+    - name: Run Python tests
+      working-directory: ./fluxor_api
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/fluxor_test
+        REDIS_URL: redis://localhost:6379/0
+        SECRET_KEY: test-secret-key
+        DEBUG: True
+      run: |
+        python manage.py migrate
+        python manage.py test
+    
+    - name: Run Frontend tests
+      working-directory: ./fluxor-frontend
+      run: npm run test:unit
+    
+    - name: Run Dashboard tests
+      working-directory: ./fluxor-dashboard
+      run: npm run test:unit
+    
+    - name: Build Frontend
+      working-directory: ./fluxor-frontend
+      run: npm run build
+    
+    - name: Build Dashboard
+      working-directory: ./fluxor-dashboard
+      run: npm run build
+    
+    - name: Lint Python code
+      working-directory: ./fluxor_api
+      run: |
+        flake8 .
+        black --check .
+        isort --check-only .
+    
+    - name: Lint Frontend code
+      working-directory: ./fluxor-frontend
+      run: npm run lint
+    
+    - name: Lint Dashboard code
+      working-directory: ./fluxor-dashboard
+      run: npm run lint
+    
+    - name: Security scan
+      working-directory: ./fluxor_api
+      run: |
+        bandit -r . -f json -o bandit-report.json
+        safety check --json --output safety-report.json
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker images
+      run: |
+        docker-compose build --parallel
+    
+    - name: Test Docker images
+      run: |
+        docker-compose up -d db redis
+        sleep 10
+        docker-compose up -d web
+        sleep 10
+        curl -f http://localhost:8000/api/health/ || exit 1
+        docker-compose down

@@ -1,38 +1,186 @@
 version: '3.8'
 
 services:
-  # Override frontend for production
+  # Database
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fluxor_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-fluxor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - trading_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fluxor}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - trading_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Django API
+  web:
+    build:
+      context: ./fluxor_api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - DEBUG=False
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-fluxor}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-fluxor_prod}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3001}
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - trading_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Celery Worker
+  celery_worker:
+    build:
+      context: ./fluxor_api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: celery -A fluxor_api worker -l info
+    environment:
+      - DEBUG=False
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-fluxor}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-fluxor_prod}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      - db
+      - redis
+    networks:
+      - trading_network
+
+  # Celery Beat
+  celery_beat:
+    build:
+      context: ./fluxor_api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: celery -A fluxor_api beat -l info
+    environment:
+      - DEBUG=False
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-fluxor}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-fluxor_prod}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      - db
+      - redis
+    networks:
+      - trading_network
+
+  # Trading Tasks
+  trading_tasks:
+    build:
+      context: ./fluxor_api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: python manage.py runserver 0.0.0.0:8001
+    environment:
+      - DEBUG=False
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-fluxor}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-fluxor_prod}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      - db
+      - redis
+    networks:
+      - trading_network
+
+  # Frontend
   frontend:
     build:
-      context: ./fluxor_api/src
+      context: ./fluxor-frontend
       dockerfile: Dockerfile
-      target: production
+    restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "5173:80"
     environment:
-      - VITE_API_URL=http://localhost:8000
-      - VITE_WS_URL=ws://localhost:8000
-      - NODE_ENV=production
-    volumes: []  # Remove volume mounts for production
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000/api}
+      - VITE_WS_BASE_URL=${VITE_WS_BASE_URL:-ws://localhost:8000/ws}
+    depends_on:
+      - web
+    networks:
+      - trading_network
 
-  # Override Django for production
-  web:
-    command: >
-      sh -c "python manage.py collectstatic --noinput &&
-             python manage.py migrate &&
-             gunicorn fluxor_api.wsgi:application --bind 0.0.0.0:8000 --workers 4"
+  # Dashboard
+  dashboard:
+    build:
+      context: ./fluxor-dashboard
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3001:80"
     environment:
-      - DJANGO_SETTINGS_MODULE=fluxor_api.settings.production
-      - DB_HOST=db
-      - DB_NAME=fluxor_api
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - REDIS_URL=redis://redis:6379/0
-      - CORS_ALLOWED_ORIGINS=http://localhost:3000
-      - DJANGO_DEBUG=False
-      - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000/api}
+    depends_on:
+      - web
+    networks:
+      - trading_network
 
-  # Remove trading_tasks in production (use Celery Beat instead)
-  trading_tasks:
-    deploy:
-      replicas: 0
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.prod.conf:/etc/nginx/nginx.conf
+      - static_volume:/var/www/static
+      - media_volume:/var/www/media
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - web
+      - frontend
+      - dashboard
+    networks:
+      - trading_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
+
+networks:
+  trading_network:
+    driver: bridge
