@@ -11,7 +11,7 @@ echo "=================================================="
 # Configuration
 DOMAIN="fluxor.pro"
 SUBDOMAINS=("api" "dashboard" "db")
-SERVER_IP="YOUR_SERVER_IP"  # Replace with your actual server IP
+SERVER_IP="31.97.103.64"  # Your production server IP
 
 echo ""
 echo "📋 Required DNS Configuration:"
