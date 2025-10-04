@@ -6,12 +6,14 @@ import './style.css'
 // Import views
 import FirebaseLogin from './views/FirebaseLogin.vue'
 import DashboardLogin from './views/DashboardLogin.vue'
+import HomePage from './views/HomePage.vue'
 
 // Router configuration
 const routes = [
   {
     path: '/',
-    redirect: '/login'
+    name: 'Home',
+    component: HomePage
   },
   {
     path: '/login',
