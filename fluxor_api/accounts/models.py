@@ -43,6 +43,24 @@ class User(AbstractBaseUser, PermissionsMixin):
     date_joined = models.DateTimeField(default=timezone.now)
     last_login = models.DateTimeField(null=True, blank=True)
     
+    # Fix reverse accessor clashes
+    groups = models.ManyToManyField(
+        'auth.Group',
+        verbose_name='groups',
+        blank=True,
+        help_text='The groups this user belongs to.',
+        related_name='fluxor_user_set',
+        related_query_name='fluxor_user',
+    )
+    user_permissions = models.ManyToManyField(
+        'auth.Permission',
+        verbose_name='user permissions',
+        blank=True,
+        help_text='Specific permissions for this user.',
+        related_name='fluxor_user_set',
+        related_query_name='fluxor_user',
+    )
+    
     # KYC fields
     phone_regex = RegexValidator(
         regex=r'^\+?1?\d{9,15}$',
