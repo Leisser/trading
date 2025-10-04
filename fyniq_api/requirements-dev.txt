@@ -1,0 +1,80 @@
+# Development and Testing Requirements
+# =====================================
+
+# Include production requirements
+-r requirements.txt
+
+# Testing Framework
+pytest==7.4.3
+pytest-django==4.7.0
+pytest-cov==4.1.0
+pytest-xdist==3.3.1
+pytest-mock==3.12.0
+pytest-asyncio==0.21.1
+pytest-benchmark==4.0.0
+factory-boy==3.3.0
+faker==37.4.0
+model-bakery==1.17.0
+
+# Code Quality
+black==23.12.1
+isort==5.13.2
+flake8==6.1.0
+flake8-docstrings==1.7.0
+flake8-import-order==0.18.2
+flake8-bugbear==24.1.15
+bandit==1.7.5
+safety==2.3.5
+mypy==1.8.0
+django-stubs==4.2.7
+
+# Documentation
+sphinx==6.2.1
+sphinx-rtd-theme==2.0.0
+sphinx-autodoc-typehints==1.25.2
+
+# Debug Tools
+django-debug-toolbar==4.2.0
+django-extensions==3.2.3
+ipython==8.18.1
+jupyter==1.0.0
+line-profiler==4.1.1
+memory-profiler==0.61.0
+
+# Development Utilities
+pre-commit==3.6.0
+coverage==7.3.4
+tox==4.11.4
+invoke==2.2.0
+
+# API Development
+httpx==0.25.2
+requests-mock==1.11.0
+responses==0.24.1
+freezegun==1.2.2
+
+# Database Tools
+django-migration-testcase==1.0.0
+pgcli==4.0.1
+
+# Performance Tools
+django-silk==5.0.4
+locust==2.17.0
+
+# Security Testing
+pip-audit==2.6.1
+semgrep==1.51.0
+
+# Mock Services
+moto==4.2.14  # Mock AWS services
+responses==0.24.1  # Mock HTTP requests
+freezegun==1.2.2  # Mock datetime
+time-machine==2.13.0
+
+# WebSocket Testing
+websockets==12.0
+channels-testing==4.0.0
+
+# 2FA Testing
+pyotp==2.9.0
+qrcode==7.4.2
