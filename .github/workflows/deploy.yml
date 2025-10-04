@@ -60,15 +60,36 @@ jobs:
         echo "Frontend image: $FRONTEND_IMAGE"
         echo "Dashboard image: $DASHBOARD_IMAGE"
         
-        # Tag and push individual services
-        docker tag $WEB_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-web:latest
-        docker tag $FRONTEND_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-frontend:latest
-        docker tag $DASHBOARD_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-dashboard:latest
+        # Tag and push web service (required)
+        if [ -n "$WEB_IMAGE" ]; then
+          echo "Tagging web service: $WEB_IMAGE"
+          docker tag $WEB_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-web:latest
+          docker push ${{ env.REGISTRY }}/${REPO_NAME}-web:latest
+          echo "Web service pushed successfully"
+        else
+          echo "ERROR: Web service image not found!"
+          exit 1
+        fi
         
-        # Push images
-        docker push ${{ env.REGISTRY }}/${REPO_NAME}-web:latest
-        docker push ${{ env.REGISTRY }}/${REPO_NAME}-frontend:latest
-        docker push ${{ env.REGISTRY }}/${REPO_NAME}-dashboard:latest
+        # Tag and push frontend service (optional)
+        if [ -n "$FRONTEND_IMAGE" ]; then
+          echo "Tagging frontend service: $FRONTEND_IMAGE"
+          docker tag $FRONTEND_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-frontend:latest
+          docker push ${{ env.REGISTRY }}/${REPO_NAME}-frontend:latest
+          echo "Frontend service pushed successfully"
+        else
+          echo "WARNING: Frontend service image not found, skipping..."
+        fi
+        
+        # Tag and push dashboard service (optional)
+        if [ -n "$DASHBOARD_IMAGE" ]; then
+          echo "Tagging dashboard service: $DASHBOARD_IMAGE"
+          docker tag $DASHBOARD_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-dashboard:latest
+          docker push ${{ env.REGISTRY }}/${REPO_NAME}-dashboard:latest
+          echo "Dashboard service pushed successfully"
+        else
+          echo "WARNING: Dashboard service image not found, skipping..."
+        fi
     
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.3
