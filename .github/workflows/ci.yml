@@ -46,10 +46,14 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: |
-          fluxor-frontend/package-lock.json
-          fluxor-dashboard/package-lock.json
+    
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('fluxor_api/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
     
     - name: Install Python dependencies
       working-directory: ./fluxor_api
@@ -58,9 +62,25 @@ jobs:
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
     
+    - name: Cache Frontend dependencies
+      uses: actions/cache@v3
+      with:
+        path: fluxor-frontend/node_modules
+        key: ${{ runner.os }}-frontend-${{ hashFiles('fluxor-frontend/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-frontend-
+    
     - name: Install Frontend dependencies
       working-directory: ./fluxor-frontend
       run: npm ci
+    
+    - name: Cache Dashboard dependencies
+      uses: actions/cache@v3
+      with:
+        path: fluxor-dashboard/node_modules
+        key: ${{ runner.os }}-dashboard-${{ hashFiles('fluxor-dashboard/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-dashboard-
     
     - name: Install Dashboard dependencies
       working-directory: ./fluxor-dashboard
