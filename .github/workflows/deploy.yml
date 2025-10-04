@@ -47,10 +47,23 @@ jobs:
         # Convert repository name to lowercase for container registry
         REPO_NAME=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
         
+        # List all images to see the actual names
+        echo "Available Docker images:"
+        docker images
+        
+        # Get the actual image names from docker-compose
+        WEB_IMAGE=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep web | head -1 | awk '{print $1}')
+        FRONTEND_IMAGE=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep frontend | head -1 | awk '{print $1}')
+        DASHBOARD_IMAGE=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep dashboard | head -1 | awk '{print $1}')
+        
+        echo "Web image: $WEB_IMAGE"
+        echo "Frontend image: $FRONTEND_IMAGE"
+        echo "Dashboard image: $DASHBOARD_IMAGE"
+        
         # Tag and push individual services
-        docker tag trading-web-1 ${{ env.REGISTRY }}/${REPO_NAME}-web:latest
-        docker tag trading-frontend-1 ${{ env.REGISTRY }}/${REPO_NAME}-frontend:latest
-        docker tag trading-dashboard-1 ${{ env.REGISTRY }}/${REPO_NAME}-dashboard:latest
+        docker tag $WEB_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-web:latest
+        docker tag $FRONTEND_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-frontend:latest
+        docker tag $DASHBOARD_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-dashboard:latest
         
         # Push images
         docker push ${{ env.REGISTRY }}/${REPO_NAME}-web:latest
