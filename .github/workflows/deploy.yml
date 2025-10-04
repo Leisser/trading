@@ -118,19 +118,22 @@ jobs:
         fi
     
     - name: Check server configuration
+      id: check-server
       run: |
-        if [ -z "${{ secrets.SERVER_HOST }}" ]; then
-          echo "WARNING: SERVER_HOST secret not configured. Skipping deployment."
+        if [ -n "${{ secrets.SERVER_HOST }}" ] && [ -n "${{ secrets.SERVER_USER }}" ] && [ -n "${{ secrets.SERVER_SSH_KEY }}" ]; then
+          echo "server_configured=true" >> $GITHUB_OUTPUT
+          echo "Server configuration found. Proceeding with deployment..."
+        else
+          echo "server_configured=false" >> $GITHUB_OUTPUT
+          echo "WARNING: Server secrets not configured. Skipping deployment."
           echo "To enable deployment, configure the following secrets in your repository:"
           echo "- SERVER_HOST: Your server IP address"
           echo "- SERVER_USER: SSH username"
           echo "- SERVER_SSH_KEY: SSH private key"
-          exit 0
         fi
-        echo "Server configuration found. Proceeding with deployment..."
 
     - name: Deploy to server
-      if: secrets.SERVER_HOST != ''
+      if: steps.check-server.outputs.server_configured == 'true'
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_HOST }}
