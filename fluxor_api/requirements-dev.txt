@@ -54,7 +54,7 @@ responses==0.24.1
 freezegun==1.2.2
 
 # Database Tools
-django-migration-testcase==1.0.0
+django-migration-testcase==0.0.15
 pgcli==4.0.1
 
 # Performance Tools
