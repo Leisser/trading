@@ -13,6 +13,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
     
     steps:
     - name: Checkout code
@@ -27,6 +30,7 @@ jobs:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+        scope: write:packages
     
     - name: Extract metadata
       id: meta
@@ -60,12 +64,22 @@ jobs:
         echo "Frontend image: $FRONTEND_IMAGE"
         echo "Dashboard image: $DASHBOARD_IMAGE"
         
+        # Try to push to a simpler repository name first
+        SIMPLE_REPO_NAME="trading"
+        
         # Tag and push web service (required)
         if [ -n "$WEB_IMAGE" ]; then
           echo "Tagging web service: $WEB_IMAGE"
-          docker tag $WEB_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-web:latest
-          docker push ${{ env.REGISTRY }}/${REPO_NAME}-web:latest
-          echo "Web service pushed successfully"
+          docker tag $WEB_IMAGE ${{ env.REGISTRY }}/${SIMPLE_REPO_NAME}-web:latest
+          echo "Attempting to push web service..."
+          if docker push ${{ env.REGISTRY }}/${SIMPLE_REPO_NAME}-web:latest; then
+            echo "Web service pushed successfully"
+          else
+            echo "Failed to push web service, trying with full repository name..."
+            docker tag $WEB_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-web:latest
+            docker push ${{ env.REGISTRY }}/${REPO_NAME}-web:latest
+            echo "Web service pushed with full name"
+          fi
         else
           echo "ERROR: Web service image not found!"
           exit 1
@@ -74,9 +88,15 @@ jobs:
         # Tag and push frontend service (optional)
         if [ -n "$FRONTEND_IMAGE" ]; then
           echo "Tagging frontend service: $FRONTEND_IMAGE"
-          docker tag $FRONTEND_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-frontend:latest
-          docker push ${{ env.REGISTRY }}/${REPO_NAME}-frontend:latest
-          echo "Frontend service pushed successfully"
+          docker tag $FRONTEND_IMAGE ${{ env.REGISTRY }}/${SIMPLE_REPO_NAME}-frontend:latest
+          if docker push ${{ env.REGISTRY }}/${SIMPLE_REPO_NAME}-frontend:latest; then
+            echo "Frontend service pushed successfully"
+          else
+            echo "Failed to push frontend service, trying with full repository name..."
+            docker tag $FRONTEND_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-frontend:latest
+            docker push ${{ env.REGISTRY }}/${REPO_NAME}-frontend:latest
+            echo "Frontend service pushed with full name"
+          fi
         else
           echo "WARNING: Frontend service image not found, skipping..."
         fi
@@ -84,9 +104,15 @@ jobs:
         # Tag and push dashboard service (optional)
         if [ -n "$DASHBOARD_IMAGE" ]; then
           echo "Tagging dashboard service: $DASHBOARD_IMAGE"
-          docker tag $DASHBOARD_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-dashboard:latest
-          docker push ${{ env.REGISTRY }}/${REPO_NAME}-dashboard:latest
-          echo "Dashboard service pushed successfully"
+          docker tag $DASHBOARD_IMAGE ${{ env.REGISTRY }}/${SIMPLE_REPO_NAME}-dashboard:latest
+          if docker push ${{ env.REGISTRY }}/${SIMPLE_REPO_NAME}-dashboard:latest; then
+            echo "Dashboard service pushed successfully"
+          else
+            echo "Failed to push dashboard service, trying with full repository name..."
+            docker tag $DASHBOARD_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-dashboard:latest
+            docker push ${{ env.REGISTRY }}/${REPO_NAME}-dashboard:latest
+            echo "Dashboard service pushed with full name"
+          fi
         else
           echo "WARNING: Dashboard service image not found, skipping..."
         fi
