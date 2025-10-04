@@ -39,16 +39,20 @@ jobs:
           type=sha,prefix={{branch}}-
           type=raw,value=latest,enable={{is_default_branch}}
     
-    - name: Build and push Docker images
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        platforms: linux/amd64,linux/arm64
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+    - name: Build and push Docker images with docker-compose
+      run: |
+        # Build all services using docker-compose
+        docker compose build --parallel
+        
+        # Tag and push individual services
+        docker tag trading-web-1 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-web:latest
+        docker tag trading-frontend-1 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
+        docker tag trading-dashboard-1 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-dashboard:latest
+        
+        # Push images
+        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-web:latest
+        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
+        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-dashboard:latest
     
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.3
