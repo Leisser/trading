@@ -181,9 +181,41 @@ jobs:
     
     - name: Test Docker images
       run: |
+        # Start database and cache services
         docker compose up -d db redis
-        sleep 10
+        echo "Waiting for database and cache to be ready..."
+        sleep 15
+        
+        # Check if services are running
+        docker compose ps
+        
+        # Start web service
         docker compose up -d web
-        sleep 10
-        curl -f http://localhost:8000/api/health/ || exit 1
+        echo "Waiting for web service to start..."
+        sleep 20
+        
+        # Check all services status
+        docker compose ps
+        
+        # Check web service logs for debugging
+        echo "Web service logs:"
+        docker compose logs web
+        
+        # Test health endpoint with retries
+        echo "Testing health endpoint..."
+        for i in {1..5}; do
+          echo "Attempt $i/5: Testing http://localhost:8000/api/health/"
+          if curl -f http://localhost:8000/api/health/; then
+            echo "Health check passed!"
+            break
+          else
+            echo "Health check failed, waiting 5 seconds..."
+            sleep 5
+          fi
+        done
+        
+        # Final health check
+        curl -f http://localhost:8000/api/health/ || (echo "Final health check failed" && docker compose logs web && exit 1)
+        
+        # Cleanup
         docker compose down
