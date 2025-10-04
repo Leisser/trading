@@ -49,3 +49,6 @@ aiohttp==3.12.13
 
 # Image processing for Django ImageField
 Pillow==10.4.0
+
+# Database URL parsing for Django
+dj-database-url==2.1.0

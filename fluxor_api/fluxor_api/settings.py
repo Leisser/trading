@@ -87,15 +87,13 @@ WSGI_APPLICATION = 'fluxor_api.wsgi.application'
 ASGI_APPLICATION = 'fluxor_api.asgi.application'
 
 # Database
+# Handle DATABASE_URL environment variable for CI/CD and production
+import dj_database_url
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME', default='fluxor'),
-        'USER': config('DB_USER', default='postgres'),
-        'PASSWORD': config('DB_PASSWORD', default='postgres'),
-        'HOST': config('DB_HOST', default='localhost'),
-        'PORT': config('DB_PORT', default='5432'),
-    }
+    'default': dj_database_url.parse(
+        config('DATABASE_URL', default='postgresql://postgres:postgres@localhost:5432/fluxor')
+    )
 }
 
 # Password validation
