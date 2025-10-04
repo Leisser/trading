@@ -1,7 +1,7 @@
-# CI/CD Requirements - Simplified for GitHub Actions
-# ================================================
+# Minimal Requirements for CI/CD - No Conflicts
+# =============================================
 
-# Core Django
+# Core Django (essential only)
 Django==4.2.7
 djangorestframework==3.14.0
 djangorestframework-simplejwt==5.3.0
@@ -10,21 +10,13 @@ django-cors-headers==4.3.1
 # Database
 psycopg2-binary==2.9.9
 
-# Celery and Redis
-celery==5.3.4
-redis==5.0.1
-
-# Testing (minimal set for CI)
+# Basic testing
 pytest==7.4.3
 pytest-django==4.7.0
-pytest-cov==4.1.0
-factory-boy==3.3.0
 
-# Code Quality
+# Code formatting (compatible versions)
 black==24.1.1
 isort==5.13.2
-flake8==6.1.0
-bandit==1.7.5
 
 # HTTP requests
 requests==2.31.0
@@ -35,6 +27,3 @@ python-decouple==3.8
 # Data processing (minimal)
 pandas==2.0.3
 numpy==1.24.3
-
-# Security (updated to compatible version)
-safety==3.0.1
