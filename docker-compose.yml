@@ -168,6 +168,22 @@ services:
     networks:
       - trading_network
 
+  # pgAdmin Database Management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@fluxor.pro
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - db
+    networks:
+      - trading_network
+
   # Nginx Reverse Proxy
   nginx:
     image: nginx:alpine
@@ -191,6 +207,7 @@ volumes:
   redis_data:
   static_volume:
   media_volume:
+  pgadmin_data:
 
 networks:
   trading_network:
