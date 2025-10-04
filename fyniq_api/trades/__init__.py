@@ -1,1 +1,0 @@
-# Trades app for trade management 
