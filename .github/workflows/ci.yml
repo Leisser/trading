@@ -93,6 +93,7 @@ jobs:
         SECRET_KEY: test-secret-key
         DEBUG: True
       run: |
+        mkdir -p logs
         python manage.py migrate
         python manage.py test --verbosity=2
     

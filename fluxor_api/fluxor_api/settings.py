@@ -194,11 +194,6 @@ LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'handlers': {
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'django.log'),
-        },
         'console': {
             'level': 'INFO',
             'class': 'logging.StreamHandler',
@@ -206,12 +201,21 @@ LOGGING = {
     },
     'loggers': {
         'django': {
-            'handlers': ['file', 'console'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': True,
         },
     },
 }
+
+# Add file logging only if logs directory exists
+if os.path.exists(os.path.join(BASE_DIR, 'logs')):
+    LOGGING['handlers']['file'] = {
+        'level': 'INFO',
+        'class': 'logging.FileHandler',
+        'filename': os.path.join(BASE_DIR, 'logs', 'django.log'),
+    }
+    LOGGING['loggers']['django']['handlers'].append('file')
 
 # Firebase settings
 FIREBASE_ADMIN_SDK_CONFIG = config('FIREBASE_ADMIN_SDK_CONFIG', default='')
