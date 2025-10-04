@@ -46,3 +46,6 @@ ccxt==4.1.77
 
 # Additional dependencies for market data services
 aiohttp==3.12.13
+
+# Image processing for Django ImageField
+Pillow==10.4.0
