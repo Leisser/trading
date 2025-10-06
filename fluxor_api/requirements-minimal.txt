@@ -31,8 +31,8 @@ pytest-django==4.7.0
 black==24.1.1
 isort==5.13.2
 
-# HTTP requests
-requests==2.31.0
+# HTTP requests (compatible with pyrebase4)
+requests<2.30,>=2.19.1
 
 # Environment
 python-decouple==3.8
@@ -52,3 +52,7 @@ Pillow==10.4.0
 
 # Database URL parsing for Django
 dj-database-url==2.1.0
+
+# Firebase Authentication
+firebase-admin==6.4.0
+pyrebase4==4.7.1
