@@ -122,7 +122,7 @@ class AuthService {
       // Get Firebase ID token
       const idToken = await firebaseUser.getIdToken();
 
-      const response = await fetch(`${this.baseURL}/api/auth/register/`, {
+      const response = await fetch(`${this.baseURL}/api/register/firebase/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
