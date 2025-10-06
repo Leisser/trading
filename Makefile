@@ -39,8 +39,8 @@ test:
 	@echo "🧪 Running tests..."
 	@echo "Running Python tests..."
 	cd fluxor_api && python manage.py test
-	@echo "Running Frontend tests..."
-	cd fluxor-frontend && npm test
+	@echo "Running Web tests..."
+	cd web && npm test
 	@echo "Running Dashboard tests..."
 	cd fluxor-dashboard && npm test
 	@echo "✅ All tests completed"
@@ -50,8 +50,8 @@ lint:
 	@echo "🔍 Running linting..."
 	@echo "Linting Python code..."
 	cd fluxor_api && flake8 . && black --check . && isort --check-only .
-	@echo "Linting Frontend code..."
-	cd fluxor-frontend && npm run lint
+	@echo "Linting Web code..."
+	cd web && npm run lint
 	@echo "Linting Dashboard code..."
 	cd fluxor-dashboard && npm run lint
 	@echo "✅ Linting completed"
@@ -121,8 +121,8 @@ install:
 	@echo "📦 Installing dependencies..."
 	@echo "Installing Python dependencies..."
 	cd fluxor_api && pip install -r requirements.txt
-	@echo "Installing Frontend dependencies..."
-	cd fluxor-frontend && npm install
+	@echo "Installing Web dependencies..."
+	cd web && npm install
 	@echo "Installing Dashboard dependencies..."
 	cd fluxor-dashboard && npm install
 	@echo "✅ Dependencies installed"

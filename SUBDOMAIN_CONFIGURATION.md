@@ -3,7 +3,7 @@
 ## **Fluxor Trading Platform - Subdomain Structure**
 
 ### **Primary Domains (Required)**
-1. **`fluxor.pro`** - Main trading application (Vue.js frontend)
+1. **`fluxor.pro`** - Main trading application (Next.js web)
 2. **`api.fluxor.pro`** - Backend API (Django REST API)
 3. **`dashboard.fluxor.pro`** - Admin dashboard (Vue.js dashboard)
 4. **`db.fluxor.pro`** - Database management (pgAdmin)
@@ -30,7 +30,7 @@ db.fluxor.pro       CNAME fluxor.pro
 
 | Subdomain | Service | Port | Purpose | Access Level |
 |-----------|---------|------|---------|--------------|
-| `fluxor.pro` | Frontend (Vue.js) | 3000 | Main trading app | Public |
+| `fluxor.pro` | Web (Next.js) | 5173 | Main trading app | Public |
 | `api.fluxor.pro` | Backend (Django) | 8000 | REST API | Public (with auth) |
 | `dashboard.fluxor.pro` | Dashboard (Vue.js) | 3001 | Admin dashboard | Superuser only |
 | `db.fluxor.pro` | pgAdmin | 5050 | Database management | Admin only |
@@ -52,12 +52,12 @@ certbot certonly --nginx -d fluxor.pro -d www.fluxor.pro -d api.fluxor.pro -d da
 
 ## **Environment Variables**
 
-### **Frontend Configuration:**
+### **Web Configuration:**
 ```bash
-# fluxor-frontend/.env.production
-VITE_API_URL=https://api.fluxor.pro
-VITE_WS_URL=wss://api.fluxor.pro
-VITE_DASHBOARD_URL=https://dashboard.fluxor.pro
+# web/.env.production
+NEXT_PUBLIC_API_URL=https://api.fluxor.pro
+NEXT_PUBLIC_WS_URL=wss://api.fluxor.pro
+NEXT_PUBLIC_DASHBOARD_URL=https://dashboard.fluxor.pro
 ```
 
 ### **Backend Configuration:**
@@ -98,8 +98,8 @@ docker-compose logs -f
 
 # View specific service logs
 docker-compose logs -f nginx
+docker-compose logs -f api
 docker-compose logs -f web
-docker-compose logs -f frontend
 docker-compose logs -f dashboard
 ```
 
