@@ -62,7 +62,7 @@ jobs:
     - name: Run Django tests
       run: |
         cd fluxor_api
-        python manage.py test
+        python manage.py test admin_control.tests investments.tests strategy_engine.tests core.tests dashboard.tests fluxor_api.tests --verbosity=1
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/fluxor_test
         REDIS_URL: redis://localhost:6379/0

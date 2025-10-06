@@ -89,7 +89,7 @@ docker-compose exec web python manage.py migrate
 docker-compose exec web python manage.py createsuperuser
 
 # Run tests
-docker-compose exec web python manage.py test
+docker-compose exec api python manage.py test admin_control.tests investments.tests strategy_engine.tests core.tests dashboard.tests fluxor_api.tests --verbosity=1
 docker-compose exec frontend npm test
 ```
 
@@ -153,7 +153,7 @@ The platform includes automated financial data updates:
 
 ### Backend Tests
 ```bash
-docker-compose exec web python manage.py test
+docker-compose exec api python manage.py test admin_control.tests investments.tests strategy_engine.tests core.tests dashboard.tests fluxor_api.tests --verbosity=1
 ```
 
 ### Frontend Tests
@@ -164,7 +164,7 @@ docker-compose exec frontend npm test
 ### Integration Tests
 ```bash
 # Run all tests
-docker-compose exec web python manage.py test
+docker-compose exec api python manage.py test admin_control.tests investments.tests strategy_engine.tests core.tests dashboard.tests fluxor_api.tests --verbosity=1
 docker-compose exec frontend npm run test:unit
 ```
 
