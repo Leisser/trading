@@ -61,17 +61,17 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements-minimal.txt
     
-    - name: Cache Frontend dependencies
+    - name: Cache Web dependencies
       uses: actions/cache@v3
       with:
-        path: fluxor-frontend/node_modules
-        key: ${{ runner.os }}-frontend-${{ hashFiles('fluxor-frontend/package.json') }}
+        path: web/node_modules
+        key: ${{ runner.os }}-web-${{ hashFiles('web/package.json') }}
         restore-keys: |
-          ${{ runner.os }}-frontend-
+          ${{ runner.os }}-web-
     
-    - name: Install Frontend dependencies
-      working-directory: ./fluxor-frontend
-      run: npm install
+    - name: Install Web dependencies
+      working-directory: ./web
+      run: npm ci
     
     - name: Cache Dashboard dependencies
       uses: actions/cache@v3
@@ -111,13 +111,13 @@ jobs:
         python manage.py migrate
         echo "Python tests skipped - focusing on build and deployment"
     
-    - name: Run Frontend tests
-      working-directory: ./fluxor-frontend
+    - name: Run Web tests
+      working-directory: ./web
       run: |
         if [ -d "src" ] && [ "$(find src -name "*.test.*" -o -name "*.spec.*" | wc -l)" -gt 0 ]; then
           npm run test:unit
         else
-          echo "No test files found, skipping frontend tests"
+          echo "No test files found, skipping web tests"
         fi
     
     - name: Run Dashboard tests
@@ -129,8 +129,8 @@ jobs:
           echo "No test files found, skipping dashboard tests"
         fi
     
-    - name: Build Frontend
-      working-directory: ./fluxor-frontend
+    - name: Build Web
+      working-directory: ./web
       run: npm run build
     
     - name: Build Dashboard
@@ -142,13 +142,13 @@ jobs:
       run: |
         echo "Python linting skipped - focusing on build and deployment"
     
-    - name: Lint Frontend code
-      working-directory: ./fluxor-frontend
+    - name: Lint Web code
+      working-directory: ./web
       run: |
         if npm run lint --dry-run 2>/dev/null; then
           npm run lint
         else
-          echo "No linting configured for frontend, skipping"
+          echo "No linting configured for web, skipping"
         fi
     
     - name: Lint Dashboard code
