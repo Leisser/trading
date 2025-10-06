@@ -38,7 +38,7 @@ dev:
 test:
 	@echo "🧪 Running tests..."
 	@echo "Running Python tests..."
-	cd fluxor_api && python manage.py test
+	cd fluxor_api && python manage.py test admin_control.tests investments.tests strategy_engine.tests core.tests dashboard.tests fluxor_api.tests --verbosity=1
 	@echo "Running Web tests..."
 	cd web && npm test
 	@echo "Running Dashboard tests..."

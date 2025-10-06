@@ -85,7 +85,7 @@ jobs:
       working-directory: ./fluxor-dashboard
       run: npm install
     
-    - name: Run Django migrations (no tests)
+    - name: Run Django migrations and tests
       working-directory: ./fluxor_api
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/fluxor_test
@@ -109,7 +109,8 @@ jobs:
       run: |
         mkdir -p logs
         python manage.py migrate
-        echo "Python tests skipped - focusing on build and deployment"
+        echo "Running Django tests with SQLite..."
+        python manage.py test admin_control.tests investments.tests strategy_engine.tests core.tests dashboard.tests fluxor_api.tests --verbosity=1
     
     - name: Run Web tests
       working-directory: ./web

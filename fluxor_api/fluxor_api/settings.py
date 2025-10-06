@@ -93,12 +93,22 @@ ASGI_APPLICATION = 'fluxor_api.asgi.application'
 # Database
 # Handle DATABASE_URL environment variable for CI/CD and production
 import dj_database_url
+import sys
 
-DATABASES = {
-    'default': dj_database_url.parse(
-        config('DATABASE_URL', default='postgresql://fluxor:fluxor123@db:5432/fluxor')
-    )
-}
+# Use SQLite for tests, PostgreSQL for everything else
+if 'test' in sys.argv or 'pytest' in sys.modules:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
+    }
+else:
+    DATABASES = {
+        'default': dj_database_url.parse(
+            config('DATABASE_URL', default='postgresql://fluxor:fluxor123@db:5432/fluxor')
+        )
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
