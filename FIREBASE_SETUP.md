@@ -1,120 +1,131 @@
-# Firebase Authentication Setup Guide
+# Firebase Configuration Fix
 
-This guide will help you set up Firebase Authentication for the Fluxor trading platform.
+## Issues Identified
 
-## 1. Firebase Project Setup
+Based on the browser console errors, there are two main Firebase configuration issues:
+
+1. **Firebase Storage CORS Error**: `Access to XMLHttpRequest at 'https://firebasestorage.googleapis.com/...' from origin 'https://fluxor.pro' has been blocked by CORS policy`
+2. **Firebase Authentication Error**: `Failed to load resource: the server responded with a status of 400`
+
+## Solutions
+
+### 1. Configure Firebase Storage CORS
+
+**Option A: Using Google Cloud SDK (Recommended)**
+
+1. Install Google Cloud SDK: https://cloud.google.com/sdk/docs/install
+2. Run the CORS configuration script:
+   ```bash
+   ./configure-firebase-cors.sh
+   ```
+
+**Option B: Manual Configuration**
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Select project: `fluxor-434ed`
+3. Navigate to Cloud Storage > Browser
+4. Click on the bucket: `fluxor-434ed.firebasestorage.app`
+5. Go to Permissions tab
+6. Add CORS configuration:
+   ```json
+   [
+     {
+       "origin": [
+         "https://fluxor.pro",
+         "https://www.fluxor.pro",
+         "http://localhost:5173",
+         "http://localhost:3000"
+       ],
+       "method": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+       "maxAgeSeconds": 3600,
+       "responseHeader": [
+         "Content-Type",
+         "Authorization",
+         "X-Requested-With",
+         "Access-Control-Allow-Origin",
+         "Access-Control-Allow-Methods",
+         "Access-Control-Allow-Headers"
+       ]
+     }
+   ]
+   ```
+
+### 2. Update Firebase Storage Rules
 
 1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Create a new project or select an existing one
-3. Enable Authentication in the Firebase console
-4. Go to Project Settings > Service Accounts
-5. Generate a new private key (JSON file)
-
-## 2. Environment Variables
-
-Create a `.env` file in the root directory with the following variables:
-
-### Backend (Django) Environment Variables:
-```bash
-# Firebase Admin SDK
-FIREBASE_PROJECT_ID=your-firebase-project-id
-FIREBASE_PRIVATE_KEY_ID=your-private-key-id
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYour private key here\n-----END PRIVATE KEY-----\n"
-FIREBASE_CLIENT_EMAIL=your-service-account@your-project.iam.gserviceaccount.com
-FIREBASE_CLIENT_ID=your-client-id
-```
-
-### Frontend (Next.js) Environment Variables:
-```bash
-# Firebase Client SDK
-NEXT_PUBLIC_FIREBASE_API_KEY=your-firebase-api-key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-firebase-project-id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-messaging-sender-id
-NEXT_PUBLIC_FIREBASE_APP_ID=your-firebase-app-id
-NEXT_PUBLIC_API_URL=http://localhost:8000
-```
-
-## 3. Firebase Authentication Methods
-
-Enable the following authentication methods in Firebase Console:
-
-1. **Email/Password**: For traditional signup/signin
-2. **Google**: For Google OAuth
-3. **GitHub**: For GitHub OAuth (requires GitHub OAuth app setup)
-
-## 4. Firebase Storage Setup
-
-1. Enable Firebase Storage in the console
-2. Set up storage rules for ID verification images:
+2. Select project: `fluxor-434ed`
+3. Navigate to Storage > Rules
+4. Replace the rules with the content from `firebase-storage-rules.js`:
 
 ```javascript
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    match /id-verification/{userId}/{allPaths=**} {
+    // Allow authenticated users to upload ID verification documents
+    match /id-verification/{userId}/{fileName} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Allow authenticated users to upload profile images
+    match /profile-images/{userId}/{fileName} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Allow public read access to verified documents (optional)
+    match /verified-documents/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Allow authenticated users to upload any file to their own folder
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
 ```
 
-## 5. Authentication Flow
+### 3. Verify Firebase Authentication
 
-### Registration Flow:
-1. User fills out signup form with ID images
-2. Firebase creates user account
-3. ID images uploaded to Firebase Storage
-4. Backend creates user record with Firebase UID
-5. User is signed out and prompted to sign in
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Select project: `fluxor-434ed`
+3. Navigate to Authentication > Sign-in method
+4. Ensure Email/Password is enabled
+5. Ensure Google and GitHub providers are configured
+6. Check authorized domains include:
+   - `fluxor.pro`
+   - `www.fluxor.pro`
+   - `localhost` (for development)
 
-### Sign-in Flow:
-1. User signs in with Firebase (email/password, Google, or GitHub)
-2. Frontend gets Firebase ID token
-3. Frontend sends token to backend `/api/auth/convert-token/`
-4. Backend verifies token and returns access/refresh tokens
-5. Frontend stores tokens for API requests
+### 4. Test Configuration
 
-## 6. API Endpoints
+1. Open `test-firebase-auth.html` in a browser
+2. Click "Test Sign Up" to verify authentication
+3. Click "Test Storage" to verify storage access
+4. Check browser console for any remaining errors
 
-### Authentication Endpoints:
-- `POST /api/auth/register/firebase/` - Register user with Firebase
-- `POST /api/auth/convert-token/` - Convert Firebase token to backend tokens
-- `POST /api/auth/refresh-token/` - Refresh access token
-- `POST /api/auth/logout/` - Logout and revoke session
+## Expected Results
 
-### User Management:
-- `GET /api/auth/profile/` - Get user profile
-- `PUT /api/auth/profile/` - Update user profile
-- `GET /api/auth/sessions/` - List user sessions
-- `POST /api/auth/sessions/{id}/revoke/` - Revoke specific session
+After applying these fixes:
 
-### Verification:
-- `GET /api/auth/verification/status/` - Get verification status
-- `POST /api/auth/verification/documents/` - Upload verification documents
+- ✅ Firebase Authentication should work without 400 errors
+- ✅ File uploads to Firebase Storage should work without CORS errors
+- ✅ User registration should complete successfully
+- ✅ ID document uploads should work properly
 
-## 7. Security Features
+## Troubleshooting
 
-- **ID Verification**: Required for all users
-- **Session Management**: Track and revoke sessions
-- **Token-based Authentication**: Secure API access
-- **Firebase Integration**: Industry-standard authentication
-- **Multi-factor Support**: Ready for 2FA implementation
+If issues persist:
 
-## 8. Testing
+1. **Check Firebase Console Logs**: Go to Firebase Console > Functions > Logs
+2. **Verify Domain Configuration**: Ensure all domains are properly configured
+3. **Check Browser Network Tab**: Look for specific error responses
+4. **Test with Different Browser**: Try in incognito mode to rule out extensions
 
-1. Start the backend: `docker-compose up -d`
-2. Start the frontend: `npm run dev` (in web directory)
-3. Visit `http://localhost:5173/signup`
-4. Test registration with ID upload
-5. Test sign-in with different methods
+## Files Created
 
-## 9. Production Considerations
-
-- Use environment variables for all Firebase credentials
-- Set up proper Firebase Storage security rules
-- Enable Firebase App Check for additional security
-- Configure CORS properly for production domains
-- Use HTTPS in production
-- Set up Firebase monitoring and alerts
+- `firebase-storage-cors.json` - CORS configuration
+- `firebase-storage-rules.js` - Storage rules
+- `configure-firebase-cors.sh` - CORS setup script
+- `test-firebase-auth.html` - Test page
+- `FIREBASE_SETUP.md` - This documentation

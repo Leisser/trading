@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Auth Test</title>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+</head>
+<body>
+    <h1>Firebase Authentication Test</h1>
+    <div id="status"></div>
+    <button onclick="testSignUp()">Test Sign Up</button>
+    <button onclick="testStorage()">Test Storage</button>
+    
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyC2EjPY7nG7uFyu6l2ymNlTGxTecOD69gU",
+            authDomain: "fluxor-434ed.firebaseapp.com",
+            projectId: "fluxor-434ed",
+            storageBucket: "fluxor-434ed.firebasestorage.app",
+            messagingSenderId: "665456308175",
+            appId: "1:665456308175:web:a990ace4d8dcaf91b62cba",
+            measurementId: "G-6Y3S97KP7T"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const storage = firebase.storage();
+
+        function updateStatus(message) {
+            document.getElementById('status').innerHTML += '<p>' + message + '</p>';
+        }
+
+        async function testSignUp() {
+            try {
+                updateStatus('Testing Firebase Authentication...');
+                
+                const email = 'test' + Date.now() + '@example.com';
+                const password = 'testpass123';
+                
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                updateStatus('✅ Firebase Authentication: SUCCESS - User created: ' + userCredential.user.email);
+                
+                // Sign out
+                await auth.signOut();
+                updateStatus('✅ User signed out successfully');
+                
+            } catch (error) {
+                updateStatus('❌ Firebase Authentication: ERROR - ' + error.message);
+                console.error('Auth error:', error);
+            }
+        }
+
+        async function testStorage() {
+            try {
+                updateStatus('Testing Firebase Storage...');
+                
+                // Create a test file
+                const testContent = 'This is a test file for CORS verification';
+                const blob = new Blob([testContent], { type: 'text/plain' });
+                
+                // Try to upload to storage
+                const storageRef = storage.ref().child('test-cors-' + Date.now() + '.txt');
+                const snapshot = await storageRef.put(blob);
+                
+                updateStatus('✅ Firebase Storage: SUCCESS - File uploaded');
+                
+                // Clean up
+                await storageRef.delete();
+                updateStatus('✅ Test file cleaned up');
+                
+            } catch (error) {
+                updateStatus('❌ Firebase Storage: ERROR - ' + error.message);
+                console.error('Storage error:', error);
+            }
+        }
+
+        // Test on page load
+        window.onload = function() {
+            updateStatus('Firebase initialized. Ready for testing.');
+        };
+    </script>
+</body>
+</html>
