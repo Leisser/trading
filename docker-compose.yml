@@ -33,36 +33,16 @@ services:
     networks:
       - trading_network
 
-  # Django Web Application
+  # Next.js Web Application
   web:
     build:
-      context: ./fluxor_api
+      context: ./web
       dockerfile: Dockerfile
-    command: python manage.py runserver 0.0.0.0:8000
-    volumes:
-      - ./fluxor_api:/app
-      - static_volume:/app/staticfiles
-      - media_volume:/app/media
     ports:
-      - "8000:8000"
+      - "5173:5173"
     environment:
-      - DJANGO_SETTINGS_MODULE=fluxor_api.settings
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/fluxor_api
-      - REDIS_URL=redis://redis:6379/0
-      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:3001
-      - SECRET_KEY=your-secret-key-here
-      - DEBUG=True
-      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - NODE_ENV=production
+      - PORT=5173
     networks:
       - trading_network
 
@@ -112,24 +92,6 @@ services:
     networks:
       - trading_network
 
-  # Vue.js Frontend - Development Mode
-  frontend:
-    image: node:20-alpine
-    working_dir: /app
-    ports:
-      - "5173:5173"
-    environment:
-      - VITE_API_URL=http://localhost:8000
-      - VITE_WS_URL=ws://localhost:8000
-      - NODE_ENV=development
-    volumes:
-      - ./fluxor-frontend:/app
-      - /app/node_modules
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
-    depends_on:
-      - web
-    networks:
-      - trading_network
 
   # Fluxor Dashboard - Simple HTTP Server
   dashboard:
@@ -149,7 +111,7 @@ services:
     build:
       context: ./fluxor_api
       dockerfile: Dockerfile
-    command: python manage.py run_trading_tasks --interval=1
+    command: python manage.py runserver 0.0.0.0:8001
     volumes:
       - ./fluxor_api:/app
     environment:
@@ -197,7 +159,6 @@ services:
       - ./ssl:/etc/nginx/ssl
     depends_on:
       - web
-      - frontend
       - dashboard
     networks:
       - trading_network

@@ -1,38 +1,30 @@
-from django.urls import path
-from .views import (
-    UserRegistrationView, UserLoginView, UserProfileView, PasswordChangeView,
-    LoginHistoryView, UserSettingsView, KYCUploadView, logout_view,
-    NotificationListView, NotificationDetailView, NotificationMarkReadView,
-    NotificationMarkAllReadView
-)
-from .firebase_views import firebase_auth, firebase_verify_token, refresh_firebase_session, firebase_dashboard_auth
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from . import views
 
-app_name = 'accounts'
+# Create router for viewsets
+router = DefaultRouter()
 
 urlpatterns = [
     # Authentication endpoints
-    path('register/', UserRegistrationView.as_view(), name='register'),
-    path('login/', UserLoginView.as_view(), name='login'),
-    path('logout/', logout_view, name='logout'),
+    path('register/', views.UserRegistrationView.as_view(), name='user-register'),
+    path('register/firebase/', views.FirebaseUserRegistrationView.as_view(), name='firebase-user-register'),
+    path('convert-token/', views.convert_token, name='convert-token'),
+    path('refresh-token/', views.refresh_token, name='refresh-token'),
+    path('logout/', views.logout, name='logout'),
     
-    # Firebase authentication endpoints
-    path('firebase-auth/', firebase_auth, name='firebase_auth'),
-    path('firebase-dashboard-auth/', firebase_dashboard_auth, name='firebase_dashboard_auth'),
-    path('firebase-verify/', firebase_verify_token, name='firebase_verify'),
-    path('firebase-refresh/', refresh_firebase_session, name='firebase_refresh'),
+    # User profile endpoints
+    path('profile/', views.UserProfileView.as_view(), name='user-profile'),
     
-    # User profile and settings
-    path('profile/', UserProfileView.as_view(), name='profile'),
-    path('password/change/', PasswordChangeView.as_view(), name='password_change'),
-    path('settings/', UserSettingsView.as_view(), name='settings'),
-    path('kyc/upload/', KYCUploadView.as_view(), name='kyc_upload'),
+    # Session management endpoints
+    path('sessions/', views.UserSessionsView.as_view(), name='user-sessions'),
+    path('sessions/<int:session_id>/revoke/', views.revoke_session, name='revoke-session'),
+    path('sessions/revoke-all/', views.revoke_all_sessions, name='revoke-all-sessions'),
     
-    # User activity
-    path('login-history/', LoginHistoryView.as_view(), name='login_history'),
+    # Verification endpoints
+    path('verification/documents/', views.VerificationDocumentsView.as_view(), name='verification-documents'),
+    path('verification/status/', views.verification_status, name='verification-status'),
     
-    # Notifications
-    path('notifications/', NotificationListView.as_view(), name='notification_list'),
-    path('notifications/<int:pk>/', NotificationDetailView.as_view(), name='notification_detail'),
-    path('notifications/<int:pk>/mark_read/', NotificationMarkReadView.as_view(), name='notification_mark_read'),
-    path('notifications/mark_all_read/', NotificationMarkAllReadView.as_view(), name='notification_mark_all_read'),
-] 
+    # Include router URLs
+    path('', include(router.urls)),
+]

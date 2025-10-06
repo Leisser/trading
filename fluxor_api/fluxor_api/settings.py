@@ -48,6 +48,9 @@ LOCAL_APPS = [
     'risk_management',
     'compliance',
     'reports',
+    'investments',
+    'admin_control',
+    'strategy_engine',
     'alerts',
     'order_management',
     'dashboard',
@@ -93,7 +96,7 @@ import dj_database_url
 
 DATABASES = {
     'default': dj_database_url.parse(
-        config('DATABASE_URL', default='postgresql://postgres:postgres@localhost:5432/fluxor')
+        config('DATABASE_URL', default='postgresql://fluxor:fluxor123@db:5432/fluxor')
     )
 }
 
@@ -144,6 +147,16 @@ REST_FRAMEWORK = {
         'django_filters.rest_framework.DjangoFilterBackend',
     ],
 }
+
+# Custom user model
+AUTH_USER_MODEL = 'accounts.User'
+
+# Authentication backends
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'accounts.authentication.TokenAuthentication',
+    'accounts.authentication.FirebaseAuthentication',
+]
 
 # JWT Settings
 SIMPLE_JWT = {

@@ -3,202 +3,90 @@ name: Deploy to Production
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  pull_request:
+    branches: [ main ]
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fluxor_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: web/package-lock.json
+    
+    - name: Install Python dependencies
+      run: |
+        cd fluxor_api
+        pip install -r requirements.txt
+    
+    - name: Install Node.js dependencies
+      run: |
+        cd web
+        npm ci
+    
+    - name: Run Django tests
+      run: |
+        cd fluxor_api
+        python manage.py test
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/fluxor_test
+        REDIS_URL: redis://localhost:6379/0
+        SECRET_KEY: test-secret-key
+    
+    - name: Build Next.js application
+      run: |
+        cd web
+        npm run build
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    permissions:
-      contents: read
-      packages: write
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
     
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    
-    - name: Log in to Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-        scope: write:packages
-    
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
-    
-    - name: Build and push Docker images with docker-compose
-      run: |
-        # Build all services using docker-compose
-        docker compose build --parallel
-        
-        # Convert repository name to lowercase for container registry
-        REPO_NAME=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
-        
-        # List all images to see the actual names
-        echo "Available Docker images:"
-        docker images
-        
-        # Get the actual image names from docker-compose
-        WEB_IMAGE=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep web | head -1 | awk '{print $1}')
-        FRONTEND_IMAGE=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep frontend | head -1 | awk '{print $1}')
-        DASHBOARD_IMAGE=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep dashboard | head -1 | awk '{print $1}')
-        
-        echo "Web image: $WEB_IMAGE"
-        echo "Frontend image: $FRONTEND_IMAGE"
-        echo "Dashboard image: $DASHBOARD_IMAGE"
-        
-        # Try to push to a simpler repository name first
-        SIMPLE_REPO_NAME="trading"
-        
-        # Tag and push web service (required)
-        if [ -n "$WEB_IMAGE" ]; then
-          echo "Tagging web service: $WEB_IMAGE"
-          docker tag $WEB_IMAGE ${{ env.REGISTRY }}/${SIMPLE_REPO_NAME}-web:latest
-          echo "Attempting to push web service..."
-          if docker push ${{ env.REGISTRY }}/${SIMPLE_REPO_NAME}-web:latest; then
-            echo "Web service pushed successfully"
-          else
-            echo "Failed to push web service, trying with full repository name..."
-            docker tag $WEB_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-web:latest
-            docker push ${{ env.REGISTRY }}/${REPO_NAME}-web:latest
-            echo "Web service pushed with full name"
-          fi
-        else
-          echo "ERROR: Web service image not found!"
-          exit 1
-        fi
-        
-        # Tag and push frontend service (optional)
-        if [ -n "$FRONTEND_IMAGE" ]; then
-          echo "Tagging frontend service: $FRONTEND_IMAGE"
-          docker tag $FRONTEND_IMAGE ${{ env.REGISTRY }}/${SIMPLE_REPO_NAME}-frontend:latest
-          if docker push ${{ env.REGISTRY }}/${SIMPLE_REPO_NAME}-frontend:latest; then
-            echo "Frontend service pushed successfully"
-          else
-            echo "Failed to push frontend service, trying with full repository name..."
-            docker tag $FRONTEND_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-frontend:latest
-            docker push ${{ env.REGISTRY }}/${REPO_NAME}-frontend:latest
-            echo "Frontend service pushed with full name"
-          fi
-        else
-          echo "WARNING: Frontend service image not found, skipping..."
-        fi
-        
-        # Tag and push dashboard service (optional)
-        if [ -n "$DASHBOARD_IMAGE" ]; then
-          echo "Tagging dashboard service: $DASHBOARD_IMAGE"
-          docker tag $DASHBOARD_IMAGE ${{ env.REGISTRY }}/${SIMPLE_REPO_NAME}-dashboard:latest
-          if docker push ${{ env.REGISTRY }}/${SIMPLE_REPO_NAME}-dashboard:latest; then
-            echo "Dashboard service pushed successfully"
-          else
-            echo "Failed to push dashboard service, trying with full repository name..."
-            docker tag $DASHBOARD_IMAGE ${{ env.REGISTRY }}/${REPO_NAME}-dashboard:latest
-            docker push ${{ env.REGISTRY }}/${REPO_NAME}-dashboard:latest
-            echo "Dashboard service pushed with full name"
-          fi
-        else
-          echo "WARNING: Dashboard service image not found, skipping..."
-        fi
-    
-    - name: Check server configuration
-      id: check-server
-      run: |
-        if [ -n "${{ secrets.SERVER_HOST }}" ] && [ -n "${{ secrets.SERVER_USER }}" ] && [ -n "${{ secrets.SERVER_SSH_KEY }}" ]; then
-          echo "server_configured=true" >> $GITHUB_OUTPUT
-          echo "Server configuration found. Proceeding with deployment..."
-        else
-          echo "server_configured=false" >> $GITHUB_OUTPUT
-          echo "WARNING: Server secrets not configured. Skipping deployment."
-          echo "To enable deployment, configure the following secrets in your repository:"
-          echo "- SERVER_HOST: Your server IP address"
-          echo "- SERVER_USER: SSH username"
-          echo "- SERVER_SSH_KEY: SSH private key"
-        fi
-
     - name: Deploy to server
-      if: steps.check-server.outputs.server_configured == 'true'
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SERVER_SSH_KEY }}
-        script: |
-          # Update code
-          cd /opt/fluxor || (mkdir -p /opt/fluxor && cd /opt/fluxor && git clone https://github.com/Leisser/trading.git .)
-          git pull origin main
-          
-          # Copy production environment
-          cp env.production .env
-          
-          # Update environment variables with server IP
-          sed -i "s/YOUR_SERVER_IP/31.97.103.64/g" .env
-          
-          # Stop existing containers
-          docker-compose -f docker-compose.prod.yml down || true
-          
-          # Clean up old containers and images
-          docker system prune -f || true
-          
-          # Build and start services
-          docker-compose -f docker-compose.prod.yml up -d --build
-          
-          # Wait for services to be ready
-          sleep 30
-          
-          # Run migrations
-          docker-compose -f docker-compose.prod.yml exec -T web python manage.py migrate || echo "Migration failed, continuing..."
-          
-          # Collect static files
-          docker-compose -f docker-compose.prod.yml exec -T web python manage.py collectstatic --noinput || echo "Static files collection failed, continuing..."
-          
-          # Test endpoints
-          echo "Testing API health..."
-          curl -f http://localhost/api/health/ || echo "API health check failed, but continuing..."
-          
-          echo "Testing main application..."
-          curl -f http://localhost/ || echo "Main app check failed, but continuing..."
-          
-          echo "Deployment completed!"
-
-  notify:
-    runs-on: ubuntu-latest
-    needs: deploy
-    if: always()
-    
-    steps:
-    - name: Check Slack configuration
-      id: check-slack
       run: |
-        if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
-          echo "slack_configured=true" >> $GITHUB_OUTPUT
-          echo "Slack configuration found. Sending notification..."
-        else
-          echo "slack_configured=false" >> $GITHUB_OUTPUT
-          echo "WARNING: SLACK_WEBHOOK_URL secret not configured. Skipping Slack notification."
-          echo "To enable Slack notifications, configure SLACK_WEBHOOK_URL secret in your repository."
-        fi
-
-    - name: Notify deployment status
-      if: steps.check-slack.outputs.slack_configured == 'true'
-      uses: 8398a7/action-slack@v3
-      with:
-        status: ${{ job.status }}
-        channel: '#deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        echo "Deployment would happen here"
+        echo "You would typically:"
+        echo "1. SSH into your server"
+        echo "2. Pull the latest code"
+        echo "3. Run docker-compose -f docker-compose.prod.yml up -d --build"
+        echo "4. Run database migrations"
+        echo "5. Restart services"

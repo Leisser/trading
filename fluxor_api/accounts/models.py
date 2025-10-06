@@ -1,269 +1,201 @@
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
-from django.core.validators import RegexValidator
 
 
-class UserManager(BaseUserManager):
-    def create_user(self, email, full_name, password=None, **extra_fields):
-        if not email:
-            raise ValueError('The Email field must be set')
-        email = self.normalize_email(email)
-        user = self.model(email=email, full_name=full_name, **extra_fields)
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
-
-    def create_superuser(self, email, full_name, password=None, **extra_fields):
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('is_verified', True)
-        extra_fields.setdefault('role', 'admin')
-
-        if extra_fields.get('is_staff') is not True:
-            raise ValueError('Superuser must have is_staff=True.')
-        if extra_fields.get('is_superuser') is not True:
-            raise ValueError('Superuser must have is_superuser=True.')
-
-        return self.create_user(email, full_name, password, **extra_fields)
-
-
-class User(AbstractBaseUser, PermissionsMixin):
-    ROLE_CHOICES = [
-        ('user', 'User'),
-        ('admin', 'Admin'),
-    ]
+class User(AbstractUser):
+    """Custom User model with additional fields for cryptocurrency trading platform"""
     
-    email = models.EmailField(unique=True)
-    full_name = models.CharField(max_length=255)
-    is_verified = models.BooleanField(default=False)
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
-    is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
-    date_joined = models.DateTimeField(default=timezone.now)
-    last_login = models.DateTimeField(null=True, blank=True)
-    
-    # Fix reverse accessor clashes
-    groups = models.ManyToManyField(
-        'auth.Group',
-        verbose_name='groups',
-        blank=True,
-        help_text='The groups this user belongs to.',
-        related_name='fluxor_user_set',
-        related_query_name='fluxor_user',
-    )
-    user_permissions = models.ManyToManyField(
-        'auth.Permission',
-        verbose_name='user permissions',
-        blank=True,
-        help_text='Specific permissions for this user.',
-        related_name='fluxor_user_set',
-        related_query_name='fluxor_user',
-    )
-    
-    # KYC fields
-    phone_regex = RegexValidator(
-        regex=r'^\+?1?\d{9,15}$',
-        message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed."
-    )
-    phone_number = models.CharField(validators=[phone_regex], max_length=17, blank=True)
+    # Basic Information
+    firebase_uid = models.CharField(max_length=128, unique=True, null=True, blank=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
     date_of_birth = models.DateField(null=True, blank=True)
-    address = models.TextField(blank=True)
-    id_document = models.FileField(upload_to='kyc_documents/', blank=True)
-    kyc_verified = models.BooleanField(default=False)
-    kyc_verified_at = models.DateTimeField(null=True, blank=True)
     
-    # Ban/Freeze fields
-    is_banned = models.BooleanField(default=False)
-    is_frozen = models.BooleanField(default=False)
-    ban_reason = models.TextField(blank=True)
-    freeze_reason = models.TextField(blank=True)
-    banned_at = models.DateTimeField(null=True, blank=True)
-    frozen_at = models.DateTimeField(null=True, blank=True)
-    banned_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='banned_users')
-    frozen_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='frozen_users')
+    # Verification Status
+    is_verified = models.BooleanField(default=False)
+    verification_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending'),
+            ('approved', 'Approved'),
+            ('rejected', 'Rejected'),
+            ('under_review', 'Under Review'),
+        ],
+        default='pending'
+    )
     
-    # Firebase Authentication fields
-    firebase_uid = models.CharField(max_length=128, blank=True, null=True, unique=True)
-    auth_provider = models.CharField(max_length=20, choices=[
-        ('email', 'Email/Password'),
-        ('google', 'Google'),
-        ('apple', 'Apple'),
-        ('firebase', 'Firebase'),
-    ], default='email')
-    avatar = models.URLField(blank=True, null=True)
-    email_verified = models.BooleanField(default=False)
+    # ID Verification
+    id_front_image = models.URLField(blank=True, null=True)
+    id_back_image = models.URLField(blank=True, null=True)
+    passport_image = models.URLField(blank=True, null=True)
+    verification_notes = models.TextField(blank=True, null=True)
     
-    objects = UserManager()
-
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['full_name']
-
-    def __str__(self):
-        return self.email
-
-    def get_full_name(self):
-        return self.full_name
-
-    def get_short_name(self):
-        return self.full_name.split()[0] if self.full_name else self.email
+    # Trading Information
+    trading_level = models.CharField(
+        max_length=20,
+        choices=[
+            ('basic', 'Basic'),
+            ('intermediate', 'Intermediate'),
+            ('advanced', 'Advanced'),
+            ('professional', 'Professional'),
+        ],
+        default='basic'
+    )
     
-    def validate_password_strength(self, password):
-        """Validate password strength"""
-        import re
-        
-        # Check minimum length
-        if len(password) < 8:
-            return False
-        
-        # Check for common passwords
-        common_passwords = ['password', '123456', '12345678', 'qwerty', 'abc123']
-        if password.lower() in common_passwords:
-            return False
-        
-        # Check for at least one uppercase, one lowercase, one digit
-        if not re.search(r'[A-Z]', password):
-            return False
-        if not re.search(r'[a-z]', password):
-            return False
-        if not re.search(r'\d', password):
-            return False
-        
-        return True
+    # Account Status
+    account_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('active', 'Active'),
+            ('suspended', 'Suspended'),
+            ('restricted', 'Restricted'),
+            ('closed', 'Closed'),
+        ],
+        default='active'
+    )
     
-    def record_failed_login_attempt(self):
-        """Record a failed login attempt"""
-        LoginHistory.objects.create(
-            user=self,
-            ip_address='127.0.0.1',  # This should be passed from the view
-            user_agent='Unknown',
-            success=False
-        )
-    
-    def is_locked_out(self):
-        """Check if user is locked out due to too many failed attempts"""
-        from django.utils import timezone
-        from datetime import timedelta
-        
-        # Check failed attempts in the last hour
-        one_hour_ago = timezone.now() - timedelta(hours=1)
-        failed_attempts = LoginHistory.objects.filter(
-            user=self,
-            success=False,
-            login_time__gte=one_hour_ago
-        ).count()
-        
-        return failed_attempts >= 5  # Lock after 5 failed attempts
-
-
-class UserProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    avatar = models.ImageField(upload_to='avatars/', blank=True)
-    bio = models.TextField(blank=True)
-    website = models.URLField(blank=True)
-    location = models.CharField(max_length=100, blank=True)
-    timezone = models.CharField(max_length=50, default='UTC')
-    
-    # Trading preferences
-    default_currency = models.CharField(max_length=3, default='USD')
-    notifications_enabled = models.BooleanField(default=True)
-    two_factor_enabled = models.BooleanField(default=False)
-    
+    # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.user.email} Profile"
-
-
-class LoginHistory(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='login_history')
-    ip_address = models.GenericIPAddressField()
-    user_agent = models.TextField()
-    login_time = models.DateTimeField(auto_now_add=True)
-    success = models.BooleanField(default=True)
+    last_login_at = models.DateTimeField(null=True, blank=True)
+    verification_submitted_at = models.DateTimeField(null=True, blank=True)
+    verification_approved_at = models.DateTimeField(null=True, blank=True)
+    
+    # KYC/AML Information
+    country = models.CharField(max_length=100, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    city = models.CharField(max_length=100, blank=True, null=True)
+    postal_code = models.CharField(max_length=20, blank=True, null=True)
+    
+    # Security Settings
+    two_factor_enabled = models.BooleanField(default=False)
+    email_notifications = models.BooleanField(default=True)
+    sms_notifications = models.BooleanField(default=False)
     
     class Meta:
-        verbose_name_plural = "Login Histories"
-        ordering = ['-login_time']
-
-    def __str__(self):
-        return f"{self.user.email} - {self.login_time}"
-
-
-class AuditLog(models.Model):
-    ACTION_CHOICES = [
-        ('user_created', 'User Created'),
-        ('user_updated', 'User Updated'),
-        ('user_banned', 'User Banned'),
-        ('user_unbanned', 'User Unbanned'),
-        ('user_frozen', 'User Frozen'),
-        ('user_unfrozen', 'User Unfrozen'),
-        ('kyc_verified', 'KYC Verified'),
-        ('kyc_rejected', 'KYC Rejected'),
-        ('login_success', 'Login Success'),
-        ('login_failed', 'Login Failed'),
-        ('password_changed', 'Password Changed'),
-        ('wallet_created', 'Wallet Created'),
-        ('deposit_received', 'Deposit Received'),
-        ('withdrawal_requested', 'Withdrawal Requested'),
-        ('withdrawal_approved', 'Withdrawal Approved'),
-        ('withdrawal_rejected', 'Withdrawal Rejected'),
-        ('withdrawal_completed', 'Withdrawal Completed'),
-        ('trade_executed', 'Trade Executed'),
-        ('admin_action', 'Admin Action'),
-        ('security_alert', 'Security Alert'),
-    ]
+        db_table = 'users'
+        verbose_name = 'User'
+        verbose_name_plural = 'Users'
     
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='audit_logs', null=True, blank=True)
-    admin_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='admin_actions')
-    action = models.CharField(max_length=50, choices=ACTION_CHOICES)
-    details = models.JSONField(default=dict)
+    def __str__(self):
+        return f"{self.email} ({self.get_full_name() or self.username})"
+    
+    def get_full_name(self):
+        """Return the first_name plus the last_name, with a space in between."""
+        full_name = f"{self.first_name} {self.last_name}".strip()
+        return full_name if full_name else None
+    
+    def is_fully_verified(self):
+        """Check if user has completed all verification requirements"""
+        return (
+            self.is_verified and 
+            self.verification_status == 'approved' and
+            (self.id_front_image or self.passport_image)
+        )
+    
+    def can_trade(self):
+        """Check if user can perform trading operations"""
+        return (
+            self.is_active and
+            self.account_status == 'active' and
+            self.is_fully_verified()
+        )
+
+
+class UserSession(models.Model):
+    """Track user sessions and tokens"""
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sessions')
+    access_token = models.TextField()
+    refresh_token = models.TextField()
+    firebase_token = models.TextField(blank=True, null=True)
+    
+    # Session Information
     ip_address = models.GenericIPAddressField(null=True, blank=True)
-    user_agent = models.TextField(blank=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
+    user_agent = models.TextField(blank=True, null=True)
+    device_info = models.JSONField(default=dict, blank=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    last_used_at = models.DateTimeField(auto_now=True)
+    
+    # Status
+    is_active = models.BooleanField(default=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
-        ordering = ['-timestamp']
+        db_table = 'user_sessions'
+        verbose_name = 'User Session'
+        verbose_name_plural = 'User Sessions'
+        ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.action} - {self.user.email if self.user else 'System'} - {self.timestamp}"
+        return f"Session for {self.user.email} - {self.created_at}"
+    
+    def is_expired(self):
+        """Check if session has expired"""
+        return timezone.now() > self.expires_at
+    
+    def revoke(self):
+        """Revoke the session"""
+        self.is_active = False
+        self.revoked_at = timezone.now()
+        self.save()
 
 
-class Notification(models.Model):
-    NOTIFICATION_TYPE_CHOICES = [
-        ('email', 'Email'),
-        ('sms', 'SMS'),
-        ('push', 'Push'),
-        ('in_app', 'In-App'),
-    ]
+class VerificationDocument(models.Model):
+    """Store verification document information"""
     
-    PRIORITY_CHOICES = [
-        ('low', 'Low'),
-        ('medium', 'Medium'),
-        ('high', 'High'),
-        ('urgent', 'Urgent'),
-    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='verification_documents')
+    document_type = models.CharField(
+        max_length=20,
+        choices=[
+            ('id_front', 'ID Card Front'),
+            ('id_back', 'ID Card Back'),
+            ('passport', 'Passport'),
+            ('utility_bill', 'Utility Bill'),
+            ('bank_statement', 'Bank Statement'),
+        ]
+    )
     
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='account_notifications')
-    notification_type = models.CharField(max_length=10, choices=NOTIFICATION_TYPE_CHOICES)
-    title = models.CharField(max_length=255)
-    message = models.TextField()
-    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
-    is_read = models.BooleanField(default=False)
-    sent_at = models.DateTimeField(auto_now_add=True)
-    read_at = models.DateTimeField(null=True, blank=True)
+    # Document Information
+    file_url = models.URLField()
+    file_name = models.CharField(max_length=255)
+    file_size = models.PositiveIntegerField()
+    mime_type = models.CharField(max_length=100)
+    
+    # Verification Status
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending'),
+            ('approved', 'Approved'),
+            ('rejected', 'Rejected'),
+        ],
+        default='pending'
+    )
+    
+    # Review Information
+    reviewed_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='reviewed_documents'
+    )
+    review_notes = models.TextField(blank=True, null=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    
+    # Timestamps
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        ordering = ['-sent_at']
+        db_table = 'verification_documents'
+        verbose_name = 'Verification Document'
+        verbose_name_plural = 'Verification Documents'
+        ordering = ['-uploaded_at']
     
     def __str__(self):
-        return f"{self.title} - {self.user.email} - {self.sent_at}"
-    
-    def mark_as_read(self):
-        """Mark notification as read"""
-        from django.utils import timezone
-        
-        self.is_read = True
-        self.read_at = timezone.now()
-        self.save() 
+        return f"{self.user.email} - {self.get_document_type_display()}"

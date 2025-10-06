@@ -1,474 +1,337 @@
 from rest_framework import status, generics, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.views import APIView
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.contrib.auth import authenticate
 from django.utils import timezone
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
+from django.db import transaction
+from .models import User, UserSession, VerificationDocument
 from .serializers import (
-    UserRegistrationSerializer, UserLoginSerializer, UserProfileSerializer,
-    UserUpdateSerializer, PasswordChangeSerializer, LoginHistorySerializer,
-    UserSettingsSerializer, KYCUploadSerializer, NotificationSerializer
+    UserRegistrationSerializer,
+    FirebaseUserRegistrationSerializer,
+    TokenConversionSerializer,
+    RefreshTokenSerializer,
+    UserSerializer,
+    UserSessionSerializer,
+    VerificationDocumentSerializer
 )
-from .models import User, Notification
+import logging
 
-class UserRegistrationView(APIView):
-    """
-    Register a new user account.
+logger = logging.getLogger(__name__)
+
+
+class UserRegistrationView(generics.CreateAPIView):
+    """View for user registration"""
     
-    This endpoint allows users to create a new account with email, password, and basic information.
-    The password must be at least 8 characters and pass Django's password validation.
-    """
-    permission_classes = [permissions.AllowAny]
+    queryset = User.objects.all()
+    serializer_class = UserRegistrationSerializer
+    permission_classes = [AllowAny]
     
-    @swagger_auto_schema(
-        request_body=UserRegistrationSerializer,
-        responses={
-            201: openapi.Response(
-                description="User registered successfully",
-                examples={
-                    "application/json": {
-                        "id": 1,
-                        "email": "user@example.com",
-                        "full_name": "John Doe",
-                        "message": "User registered successfully"
-                    }
-                }
-            ),
-            400: "Bad Request - Validation errors"
-        },
-        operation_description="Register a new user account with email and password"
-    )
-    def post(self, request):
-        serializer = UserRegistrationSerializer(data=request.data)
-        if serializer.is_valid():
+    def create(self, request, *args, **kwargs):
+        """Create new user"""
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
             user = serializer.save()
             
-            # Generate JWT tokens for the new user
-            from rest_framework_simplejwt.tokens import RefreshToken
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
-            refresh_token = str(refresh)
-            
             return Response({
-                'access': access_token,
-                'refresh': refresh_token,
-                'user': {
-                    'id': user.id,
-                    'email': user.email,
-                    'full_name': user.full_name,
-                    'role': user.role,
-                    'is_active': user.is_active,
-                    'email_verified': user.email_verified,
-                    'phone_number': user.phone_number,
-                    'avatar': user.avatar,
-                    'date_joined': user.date_joined,
-                    'last_login': user.last_login
-                },
-                'message': 'User registered successfully'
+                'message': 'User registered successfully',
+                'user': UserSerializer(user).data
             }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class UserLoginView(APIView):
-    """
-    Authenticate user and return access token.
-    
-    This endpoint authenticates users with email and password, returning a JWT access token
-    for subsequent API requests.
-    """
-    permission_classes = [permissions.AllowAny]
-    
-    @swagger_auto_schema(
-        request_body=UserLoginSerializer,
-        responses={
-            200: openapi.Response(
-                description="Login successful",
-                examples={
-                    "application/json": {
-                        "access": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-                        "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-                        "user": {
-                            "id": 1,
-                            "email": "user@example.com",
-                            "full_name": "John Doe"
-                        }
-                    }
-                }
-            ),
-            401: "Invalid credentials"
-        },
-        operation_description="Authenticate user and return JWT tokens"
-    )
-    def post(self, request):
-        serializer = UserLoginSerializer(data=request.data)
-        if serializer.is_valid():
-            email = serializer.validated_data['email']
-            password = serializer.validated_data['password']
-            user = authenticate(request, email=email, password=password)
             
-            if user:
-                login(request, user)
+        except Exception as e:
+            logger.error(f"User registration error: {str(e)}")
+            return Response({
+                'message': 'Registration failed',
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class FirebaseUserRegistrationView(generics.CreateAPIView):
+    """View for Firebase user registration with ID verification"""
+    
+    queryset = User.objects.all()
+    serializer_class = FirebaseUserRegistrationSerializer
+    permission_classes = [AllowAny]
+    
+    def create(self, request, *args, **kwargs):
+        """Create user from Firebase data"""
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            
+            with transaction.atomic():
+                user = serializer.save()
                 
-                # Generate real JWT tokens
-                from rest_framework_simplejwt.tokens import RefreshToken
-                refresh = RefreshToken.for_user(user)
-                access_token = str(refresh.access_token)
-                refresh_token = str(refresh)
-                
-                return Response({
-                    'access': access_token,
-                    'refresh': refresh_token,
-                    'user': {
-                        'id': user.id,
-                        'email': user.email,
-                        'full_name': user.full_name,
-                        'role': user.role,
-                        'is_active': user.is_active,
-                        'email_verified': user.email_verified,
-                        'phone_number': user.phone_number,
-                        'avatar': user.avatar,
-                        'date_joined': user.date_joined,
-                        'last_login': user.last_login
-                    }
-                }, status=status.HTTP_200_OK)
-            else:
-                return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class UserProfileView(APIView):
-    """
-    Get and update user profile information.
-    
-    This endpoint allows authenticated users to view and update their profile information.
-    """
-    permission_classes = [permissions.IsAuthenticated]
-    
-    @swagger_auto_schema(
-        responses={
-            200: UserProfileSerializer,
-            401: "Authentication required"
-        },
-        operation_description="Get current user's profile information"
-    )
-    def get(self, request):
-        serializer = UserProfileSerializer(request.user)
-        return Response(serializer.data)
-    
-    @swagger_auto_schema(
-        request_body=UserUpdateSerializer,
-        responses={
-            200: openapi.Response(
-                description="Profile updated successfully",
-                examples={
-                    "application/json": {
-                        "message": "Profile updated successfully",
-                        "user": {
-                            "id": 1,
-                            "email": "user@example.com",
-                            "full_name": "John Doe Updated",
-                            "phone_number": "+1234567890"
-                        }
-                    }
-                }
-            ),
-            400: "Bad Request - Validation errors"
-        },
-        operation_description="Update current user's profile information"
-    )
-    def put(self, request):
-        serializer = UserUpdateSerializer(request.user, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({
-                'message': 'Profile updated successfully',
-                'user': UserProfileSerializer(request.user).data
-            })
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class PasswordChangeView(APIView):
-    """
-    Change user password.
-    
-    This endpoint allows authenticated users to change their password.
-    The new password must pass Django's password validation.
-    """
-    permission_classes = [permissions.IsAuthenticated]
-    
-    @swagger_auto_schema(
-        request_body=PasswordChangeSerializer,
-        responses={
-            200: openapi.Response(
-                description="Password changed successfully",
-                examples={
-                    "application/json": {
-                        "message": "Password changed successfully"
-                    }
-                }
-            ),
-            400: "Bad Request - Invalid current password or validation errors"
-        },
-        operation_description="Change current user's password"
-    )
-    def post(self, request):
-        serializer = PasswordChangeSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            current_password = serializer.validated_data['current_password']
-            new_password = serializer.validated_data['new_password']
+                # Create verification documents if images provided
+                id_images = request.data.get('id_images', {})
+                for doc_type, image_url in id_images.items():
+                    if image_url:
+                        VerificationDocument.objects.create(
+                            user=user,
+                            document_type=doc_type,
+                            file_url=image_url,
+                            file_name=f"{doc_type}_{user.id}",
+                            file_size=0,  # Will be updated when file is processed
+                            mime_type="image/jpeg"
+                        )
             
-            if not request.user.check_password(current_password):
-                return Response({'error': 'Current password is incorrect'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                'message': 'User registered successfully. Please sign in to continue.',
+                'user_id': user.id,
+                'verification_status': user.verification_status
+            }, status=status.HTTP_201_CREATED)
             
-            request.user.set_password(new_password)
-            request.user.save()
-            return Response({'message': 'Password changed successfully'})
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class LoginHistoryView(generics.ListAPIView):
-    """
-    Get user's login history.
-    
-    This endpoint returns a paginated list of the user's login attempts and sessions.
-    """
-    permission_classes = [permissions.IsAuthenticated]
-    serializer_class = LoginHistorySerializer
-    
-    @swagger_auto_schema(
-        manual_parameters=[
-            openapi.Parameter(
-                'page',
-                openapi.IN_QUERY,
-                description="Page number",
-                type=openapi.TYPE_INTEGER,
-                default=1
-            ),
-            openapi.Parameter(
-                'page_size',
-                openapi.IN_QUERY,
-                description="Number of items per page",
-                type=openapi.TYPE_INTEGER,
-                default=20
-            )
-        ],
-        responses={
-            200: openapi.Response(
-                description="Login history retrieved successfully",
-                examples={
-                    "application/json": {
-                        "count": 25,
-                        "next": "http://localhost:8000/api/accounts/login-history/?page=2",
-                        "previous": None,
-                        "results": [
-                            {
-                                "id": 1,
-                                "ip_address": "192.168.1.1",
-                                "user_agent": "Mozilla/5.0...",
-                                "timestamp": "2024-01-01T12:00:00Z",
-                                "success": True
-                            }
-                        ]
-                    }
-                }
-            )
-        },
-        operation_description="Get paginated login history for current user"
-    )
-    def get(self, request, *args, **kwargs):
-        # Mock data for demonstration
-        mock_history = [
-            {
-                'id': 1,
-                'user': request.user.id,
-                'ip_address': '192.168.1.1',
-                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'timestamp': timezone.now(),
-                'success': True
-            },
-            {
-                'id': 2,
-                'user': request.user.id,
-                'ip_address': '192.168.1.2',
-                'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-                'timestamp': timezone.now() - timezone.timedelta(hours=2),
-                'success': True
-            }
-        ]
-        
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 20))
-        
-        start = (page - 1) * page_size
-        end = start + page_size
-        
-        return Response({
-            'count': len(mock_history),
-            'next': f"http://localhost:8000/api/accounts/login-history/?page={page + 1}" if end < len(mock_history) else None,
-            'previous': f"http://localhost:8000/api/accounts/login-history/?page={page - 1}" if page > 1 else None,
-            'results': mock_history[start:end]
-        })
-
-class UserSettingsView(APIView):
-    """
-    Get and update user notification settings.
-    
-    This endpoint allows users to manage their notification preferences.
-    """
-    permission_classes = [permissions.IsAuthenticated]
-    
-    @swagger_auto_schema(
-        responses={
-            200: UserSettingsSerializer,
-            401: "Authentication required"
-        },
-        operation_description="Get current user's notification settings"
-    )
-    def get(self, request):
-        # Mock settings for demonstration
-        settings = {
-            'email_notifications': True,
-            'trade_alerts': True,
-            'price_alerts': False
-        }
-        serializer = UserSettingsSerializer(settings)
-        return Response(serializer.data)
-    
-    @swagger_auto_schema(
-        request_body=UserSettingsSerializer,
-        responses={
-            200: openapi.Response(
-                description="Settings updated successfully",
-                examples={
-                    "application/json": {
-                        "message": "Settings updated successfully",
-                        "settings": {
-                            "email_notifications": True,
-                            "trade_alerts": True,
-                            "price_alerts": False
-                        }
-                    }
-                }
-            )
-        },
-        operation_description="Update current user's notification settings"
-    )
-    def put(self, request):
-        serializer = UserSettingsSerializer(data=request.data)
-        if serializer.is_valid():
-            # In a real implementation, save settings to database
+        except Exception as e:
+            logger.error(f"Firebase user registration error: {str(e)}")
             return Response({
-                'message': 'Settings updated successfully',
-                'settings': serializer.validated_data
-            })
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                'message': 'Registration failed',
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-class KYCUploadView(APIView):
-    """
-    Upload KYC documents for verification.
-    
-    This endpoint allows users to upload identity and address verification documents.
-    Supported file types: PDF, JPG, PNG. Maximum file size: 10MB.
-    """
-    permission_classes = [permissions.IsAuthenticated]
-    
-    @swagger_auto_schema(
-        request_body=KYCUploadSerializer,
-        responses={
-            200: openapi.Response(
-                description="KYC documents uploaded successfully",
-                examples={
-                    "application/json": {
-                        "message": "KYC documents uploaded successfully",
-                        "verification_status": "pending",
-                        "estimated_verification_time": "2-3 business days"
-                    }
-                }
-            ),
-            400: "Bad Request - Invalid files or validation errors"
-        },
-        operation_description="Upload KYC verification documents"
-    )
-    def post(self, request):
-        serializer = KYCUploadSerializer(data=request.data)
-        if serializer.is_valid():
-            # In a real implementation, save files and trigger verification process
-            return Response({
-                'message': 'KYC documents uploaded successfully',
-                'verification_status': 'pending',
-                'estimated_verification_time': '2-3 business days'
-            })
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
-@swagger_auto_schema(
-    responses={
-        200: openapi.Response(
-            description="Logout successful",
-            examples={
-                "application/json": {
-                    "message": "Logged out successfully"
-                }
-            }
+@permission_classes([AllowAny])
+def convert_token(request):
+    """Convert Firebase token to backend tokens"""
+    try:
+        serializer = TokenConversionSerializer(
+            data=request.data,
+            context={'request': request}
         )
-    },
-    operation_description="Logout current user and invalidate session"
-)
-def logout_view(request):
-    """
-    Logout current user.
-    
-    This endpoint logs out the current user and invalidates their session.
-    """
-    logout(request)
-    return Response({'message': 'Logged out successfully'})
-
-
-class NotificationListView(generics.ListAPIView):
-    """List user notifications"""
-    
-    serializer_class = NotificationSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user).order_by('-sent_at')
-
-
-class NotificationDetailView(generics.RetrieveAPIView):
-    """Get notification details"""
-    
-    serializer_class = NotificationSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user)
-
-
-class NotificationMarkReadView(generics.UpdateAPIView):
-    """Mark notification as read"""
-    
-    serializer_class = NotificationSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user)
-    
-    def put(self, request, pk):
-        notification = self.get_object()
-        notification.mark_as_read()
-        return Response({'is_read': True})
-
-
-class NotificationMarkAllReadView(APIView):
-    """Mark all notifications as read"""
-    
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def post(self, request):
-        updated_count = Notification.objects.filter(
-            user=request.user,
-            is_read=False
-        ).update(is_read=True)
+        serializer.is_valid(raise_exception=True)
         
-        return Response({'updated_count': updated_count}) 
+        result = serializer.save()
+        
+        return Response({
+            'message': 'Token converted successfully',
+            'access_token': result['access_token'],
+            'refresh_token': result['refresh_token'],
+            'user': result['user']
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Token conversion error: {str(e)}")
+        return Response({
+            'message': 'Token conversion failed',
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def refresh_token(request):
+    """Refresh access token using refresh token"""
+    try:
+        serializer = RefreshTokenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        result = serializer.save()
+        
+        return Response({
+            'message': 'Token refreshed successfully',
+            'access_token': result['access_token'],
+            'refresh_token': result['refresh_token']
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Token refresh error: {str(e)}")
+        return Response({
+            'message': 'Token refresh failed',
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    """View for user profile management"""
+    
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_object(self):
+        return self.request.user
+    
+    def update(self, request, *args, **kwargs):
+        """Update user profile"""
+        try:
+            partial = kwargs.pop('partial', False)
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            
+            return Response({
+                'message': 'Profile updated successfully',
+                'user': serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Profile update error: {str(e)}")
+            return Response({
+                'message': 'Profile update failed',
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserSessionsView(generics.ListAPIView):
+    """View for listing user sessions"""
+    
+    serializer_class = UserSessionSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return UserSession.objects.filter(
+            user=self.request.user,
+            is_active=True
+        ).order_by('-created_at')
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def revoke_session(request, session_id):
+    """Revoke a specific user session"""
+    try:
+        session = UserSession.objects.get(
+            id=session_id,
+            user=request.user,
+            is_active=True
+        )
+        
+        session.revoke()
+        
+        return Response({
+            'message': 'Session revoked successfully'
+        }, status=status.HTTP_200_OK)
+        
+    except UserSession.DoesNotExist:
+        return Response({
+            'message': 'Session not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+        
+    except Exception as e:
+        logger.error(f"Session revocation error: {str(e)}")
+        return Response({
+            'message': 'Failed to revoke session',
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def revoke_all_sessions(request):
+    """Revoke all user sessions except current one"""
+    try:
+        current_session_token = request.META.get('HTTP_AUTHORIZATION', '').replace('Bearer ', '')
+        
+        sessions = UserSession.objects.filter(
+            user=request.user,
+            is_active=True
+        ).exclude(access_token=current_session_token)
+        
+        for session in sessions:
+            session.revoke()
+        
+        return Response({
+            'message': f'Revoked {sessions.count()} sessions successfully'
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Bulk session revocation error: {str(e)}")
+        return Response({
+            'message': 'Failed to revoke sessions',
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class VerificationDocumentsView(generics.ListCreateAPIView):
+    """View for managing verification documents"""
+    
+    serializer_class = VerificationDocumentSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return VerificationDocument.objects.filter(
+            user=self.request.user
+        ).order_by('-uploaded_at')
+    
+    def create(self, request, *args, **kwargs):
+        """Upload verification document"""
+        try:
+            data = request.data.copy()
+            data['user'] = request.user.id
+            
+            serializer = self.get_serializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            document = serializer.save()
+            
+            return Response({
+                'message': 'Document uploaded successfully',
+                'document': serializer.data
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            logger.error(f"Document upload error: {str(e)}")
+            return Response({
+                'message': 'Document upload failed',
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def verification_status(request):
+    """Get user verification status"""
+    try:
+        user = request.user
+        documents = VerificationDocument.objects.filter(user=user)
+        
+        return Response({
+            'verification_status': user.verification_status,
+            'is_verified': user.is_verified,
+            'is_fully_verified': user.is_fully_verified(),
+            'can_trade': user.can_trade(),
+            'documents': VerificationDocumentSerializer(documents, many=True).data,
+            'verification_notes': user.verification_notes,
+            'submitted_at': user.verification_submitted_at,
+            'approved_at': user.verification_approved_at
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Verification status error: {str(e)}")
+        return Response({
+            'message': 'Failed to get verification status',
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def logout(request):
+    """Logout user and revoke current session"""
+    try:
+        # Get current session token
+        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header.replace('Bearer ', '')
+            
+            # Find and revoke current session
+            try:
+                session = UserSession.objects.get(
+                    access_token=token,
+                    user=request.user,
+                    is_active=True
+                )
+                session.revoke()
+            except UserSession.DoesNotExist:
+                pass  # Session already revoked or doesn't exist
+        
+        return Response({
+            'message': 'Logged out successfully'
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Logout error: {str(e)}")
+        return Response({
+            'message': 'Logout failed',
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
