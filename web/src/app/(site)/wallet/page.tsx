@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Icon } from "@iconify/react";
+import { apiEndpoint } from '@/config/api';
 
 interface WalletData {
   balance: number;
@@ -121,7 +122,7 @@ export default function WalletPage() {
   const loadWalletData = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8000/api/balance/', {
+      const response = await fetch(apiEndpoint('/api/balance/'), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -141,7 +142,7 @@ export default function WalletPage() {
   const loadMultiCurrencyWallet = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8000/api/crypto-balances/', {
+      const response = await fetch(apiEndpoint('/api/crypto-balances/'), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -161,14 +162,14 @@ export default function WalletPage() {
       const token = localStorage.getItem('access_token');
       
       // Load deposits
-      const depositsResponse = await fetch('http://localhost:8000/api/deposit/request/', {
+      const depositsResponse = await fetch(apiEndpoint('/api/deposit/request/'), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
       
       // Load withdrawals
-      const withdrawalsResponse = await fetch('http://localhost:8000/api/withdrawal/request/', {
+      const withdrawalsResponse = await fetch(apiEndpoint('/api/withdrawal/request/'), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -192,7 +193,7 @@ export default function WalletPage() {
   const loadTrades = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8000/api/trading/history/', {
+      const response = await fetch(apiEndpoint('/api/trading/history/'), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -210,7 +211,7 @@ export default function WalletPage() {
   const loadCryptocurrencies = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8000/api/cryptocurrencies/', {
+      const response = await fetch(apiEndpoint('/api/cryptocurrencies/'), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -236,7 +237,7 @@ export default function WalletPage() {
   const loadDepositWallets = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8000/api/deposit/wallets/', {
+      const response = await fetch(apiEndpoint('/api/deposit/wallets/'), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -276,7 +277,7 @@ export default function WalletPage() {
       const token = localStorage.getItem('access_token');
       const selectedWallet = depositWallets.find(w => w.id === selectedDepositWallet);
       
-      const response = await fetch('http://localhost:8000/api/deposit/request/', {
+      const response = await fetch(apiEndpoint('/api/deposit/request/'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -320,7 +321,7 @@ export default function WalletPage() {
       const token = localStorage.getItem('access_token');
       const selectedCrypto = cryptocurrencies.find(c => c.id === withdrawCryptoCurrency);
       
-      const response = await fetch('http://localhost:8000/api/withdrawal/request/', {
+      const response = await fetch(apiEndpoint('/api/withdrawal/request/'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
