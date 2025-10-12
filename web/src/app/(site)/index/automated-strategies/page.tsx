@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { authService } from '@/services/authService';
+import { apiEndpoint } from '@/config/api';
 import OngoingTrades from '@/components/OngoingTrades';
 
 interface TradingPair {
@@ -143,7 +144,7 @@ export default function AutomatedStrategiesPage() {
   const loadTradingData = async () => {
     try {
       console.log('📡 Loading trading pairs from backend...');
-      const response = await authService.makeAuthenticatedRequest('http://localhost:8000/api/cryptocurrencies/');
+      const response = await authService.makeAuthenticatedRequest(apiEndpoint('/api/cryptocurrencies/'));
       
       if (response.ok) {
         const data = await response.json();
@@ -189,7 +190,7 @@ export default function AutomatedStrategiesPage() {
 
   const loadUserBalance = async () => {
     try {
-      const response = await authService.makeAuthenticatedRequest('http://localhost:8000/api/balance/');
+      const response = await authService.makeAuthenticatedRequest(apiEndpoint('/api/balance/'));
       
       if (response.ok) {
         const data = await response.json();
@@ -231,7 +232,7 @@ export default function AutomatedStrategiesPage() {
           break;
       }
       
-      const url = `http://localhost:8000/api/admin/market/combined-chart/?symbol=${selectedPair.base_currency}&limit=${limit}&interval=${interval}`;
+      const url = apiEndpoint(`/api/admin/market/combined-chart/?symbol=${selectedPair.base_currency}&limit=${limit}&interval=${interval}`);
       console.log('   API URL:', url);
       
       const response = await authService.makeAuthenticatedRequest(url);
@@ -271,7 +272,7 @@ export default function AutomatedStrategiesPage() {
     
     try {
       const response = await authService.makeAuthenticatedRequest(
-        `http://localhost:8000/api/admin/market/price-auto/?symbol=${selectedPair.base_currency}`
+        apiEndpoint(`/api/admin/market/price-auto/?symbol=${selectedPair.base_currency}`)
       );
       
       if (response.ok) {
@@ -310,7 +311,7 @@ export default function AutomatedStrategiesPage() {
     
     try {
       await authService.makeAuthenticatedRequest(
-        'http://localhost:8000/api/admin/market/store-data-point/',
+        apiEndpoint('/api/admin/market/store-data-point/'),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -353,7 +354,7 @@ export default function AutomatedStrategiesPage() {
 
       // Call backend API to start strategy (using biased trading system)
       const response = await authService.makeAuthenticatedRequest(
-        'http://localhost:8000/api/trading/execute/',
+        apiEndpoint('/api/trading/execute/'),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

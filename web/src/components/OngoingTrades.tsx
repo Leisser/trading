@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from "@iconify/react";
 import { authService } from '@/services/authService';
+import { apiEndpoint } from '@/config/api';
 
 interface Trade {
   id: number;
@@ -44,7 +45,7 @@ export default function OngoingTrades({ refreshTrigger = 0 }: OngoingTradesProps
   const loadOngoingTrades = async () => {
     try {
       const response = await authService.makeAuthenticatedRequest(
-        'http://localhost:8000/api/trading/history/'
+        apiEndpoint('/api/trading/history/')
       );
       
       if (response.ok) {

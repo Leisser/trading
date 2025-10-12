@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Icon } from "@iconify/react";
+import { apiEndpoint } from '@/config/api';
 
 interface TradingPair {
   id: string;
@@ -60,7 +61,7 @@ export default function SpotTradingPage() {
   const loadTradingData = async () => {
     try {
       // Load trading pairs from API
-      const response = await fetch('http://localhost:8000/api/trading/pairs/');
+      const response = await fetch(apiEndpoint('/api/trading/pairs/'));
       if (response.ok) {
         const pairs = await response.json();
         setTradingPairs(pairs);
@@ -145,7 +146,7 @@ export default function SpotTradingPage() {
   const loadUserBalance = async () => {
     try {
       const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:8000/api/balance/', {
+      const response = await fetch(apiEndpoint('/api/balance/'), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -189,7 +190,7 @@ export default function SpotTradingPage() {
         price: orderType === 'limit' ? parseFloat(orderPrice) : selectedPair.current_price
       };
       
-      const response = await fetch('http://localhost:8000/api/trades/trading/orders/', {
+      const response = await fetch(apiEndpoint('/api/trades/trading/orders/'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

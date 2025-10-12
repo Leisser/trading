@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { authService } from '@/services/authService';
+import { apiEndpoint } from '@/config/api';
 
 export default function IndexPage() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function IndexPage() {
       }
       
       // Use authService which handles automatic token refresh
-      const response = await authService.makeAuthenticatedRequest('http://localhost:8000/api/balance/');
+      const response = await authService.makeAuthenticatedRequest(apiEndpoint('/api/balance/'));
       
       if (response.ok) {
         const data = await response.json();

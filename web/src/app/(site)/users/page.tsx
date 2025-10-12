@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from "@iconify/react";
 import { useRouter } from 'next/navigation';
+import { apiEndpoint } from '@/config/api';
 
 interface User {
   id: number;
@@ -45,7 +46,7 @@ export default function UsersPage() {
         return;
       }
 
-      const response = await fetch('http://localhost:8000/api/admin/users/', {
+      const response = await fetch(apiEndpoint('/api/admin/users/'), {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
@@ -67,7 +68,7 @@ export default function UsersPage() {
       setLoading(true);
       const token = localStorage.getItem('access_token');
       
-      const response = await fetch('http://localhost:8000/api/admin/users/', {
+      const response = await fetch(apiEndpoint('/api/admin/users/'), {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       

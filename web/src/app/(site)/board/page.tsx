@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from "@iconify/react";
 import { useRouter } from 'next/navigation';
+import { apiEndpoint } from '@/config/api';
 
 interface AdminStats {
   total_users: number;
@@ -83,7 +84,7 @@ export default function BoardPage() {
       }
 
       // Get user profile to check is_superuser
-      const profileResponse = await fetch('http://localhost:8000/api/profile/', {
+      const profileResponse = await fetch(apiEndpoint('/api/profile/'), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -120,7 +121,7 @@ export default function BoardPage() {
       const token = localStorage.getItem('access_token');
       
       // Load dashboard stats from API
-      const statsResponse = await fetch('http://localhost:8000/api/dashboard/stats/', {
+      const statsResponse = await fetch(apiEndpoint('/api/dashboard/stats/'), {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       
@@ -130,7 +131,7 @@ export default function BoardPage() {
       }
       
       // Load pending deposits
-      const depositsResponse = await fetch('http://localhost:8000/api/admin/deposits/', {
+      const depositsResponse = await fetch(apiEndpoint('/api/admin/deposits/'), {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       
@@ -142,7 +143,7 @@ export default function BoardPage() {
       }
 
       // Load pending withdrawals
-      const withdrawalsResponse = await fetch('http://localhost:8000/api/admin/withdrawals/', {
+      const withdrawalsResponse = await fetch(apiEndpoint('/api/admin/withdrawals/'), {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       
@@ -176,7 +177,7 @@ export default function BoardPage() {
       setUsersLoading(true);
       const token = localStorage.getItem('access_token');
       
-      const response = await fetch('http://localhost:8000/api/admin/users/', {
+      const response = await fetch(apiEndpoint('/api/admin/users/'), {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       
@@ -201,7 +202,7 @@ export default function BoardPage() {
   const loadTradingSettings = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8000/api/admin/settings/mode-status/', {
+      const response = await fetch(apiEndpoint('/api/admin/settings/mode-status/'), {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       
@@ -231,7 +232,7 @@ export default function BoardPage() {
   const handleSaveTradingSettings = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8000/api/admin/settings/activity-based/', {
+      const response = await fetch(apiEndpoint('/api/admin/settings/activity-based/'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -263,7 +264,7 @@ export default function BoardPage() {
   const handleSetToDefault = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8000/api/admin/settings/default/', {
+      const response = await fetch(apiEndpoint('/api/admin/settings/default/'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -286,7 +287,7 @@ export default function BoardPage() {
   const handleApproveDeposit = async (depositId: number) => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:8000/api/admin/deposits/${depositId}/approve/`, {
+      const response = await fetch(apiEndpoint(`/api/admin/deposits/${depositId}/approve/`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -317,7 +318,7 @@ export default function BoardPage() {
 
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:8000/api/admin/deposits/${depositId}/approve/`, {
+      const response = await fetch(apiEndpoint(`/api/admin/deposits/${depositId}/approve/`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

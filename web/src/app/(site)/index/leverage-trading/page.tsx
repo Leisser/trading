@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { authService } from '@/services/authService';
+import { apiEndpoint } from '@/config/api';
 import OngoingTrades from '@/components/OngoingTrades';
 
 interface TradingPair {
@@ -88,7 +89,7 @@ export default function LeverageTradingPage() {
   const loadTradingData = async () => {
     try {
       console.log('📡 Loading trading pairs from backend...');
-      const response = await authService.makeAuthenticatedRequest('http://localhost:8000/api/cryptocurrencies/');
+      const response = await authService.makeAuthenticatedRequest(apiEndpoint('/api/cryptocurrencies/'));
       
       if (response.ok) {
         const data = await response.json();
@@ -134,7 +135,7 @@ export default function LeverageTradingPage() {
 
   const loadUserBalance = async () => {
     try {
-      const response = await authService.makeAuthenticatedRequest('http://localhost:8000/api/balance/');
+      const response = await authService.makeAuthenticatedRequest(apiEndpoint('/api/balance/'));
       
       if (response.ok) {
         const data = await response.json();
@@ -176,7 +177,7 @@ export default function LeverageTradingPage() {
           break;
       }
       
-      const url = `http://localhost:8000/api/admin/market/combined-chart/?symbol=${selectedPair.base_currency}&limit=${limit}&interval=${interval}`;
+      const url = apiEndpoint(`/api/admin/market/combined-chart/?symbol=${selectedPair.base_currency}&limit=${limit}&interval=${interval}`);
       console.log('   API URL:', url);
       
       const response = await authService.makeAuthenticatedRequest(url);
@@ -216,7 +217,7 @@ export default function LeverageTradingPage() {
     
     try {
       const response = await authService.makeAuthenticatedRequest(
-        `http://localhost:8000/api/admin/market/price-auto/?symbol=${selectedPair.base_currency}`
+        apiEndpoint(`/api/admin/market/price-auto/?symbol=${selectedPair.base_currency}`)
       );
       
       if (response.ok) {
@@ -255,7 +256,7 @@ export default function LeverageTradingPage() {
     
     try {
       await authService.makeAuthenticatedRequest(
-        'http://localhost:8000/api/admin/market/store-data-point/',
+        apiEndpoint('/api/admin/market/store-data-point/'),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -303,7 +304,7 @@ export default function LeverageTradingPage() {
 
       // Call backend API to place leverage order (using biased trading system)
       const response = await authService.makeAuthenticatedRequest(
-        'http://localhost:8000/api/trading/execute/',
+        apiEndpoint('/api/trading/execute/'),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
