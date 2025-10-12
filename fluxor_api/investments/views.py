@@ -76,6 +76,7 @@ class CryptocurrencyListView(generics.ListAPIView):
     serializer_class = CryptocurrencySerializer
     permission_classes = [permissions.IsAuthenticated]
     queryset = Cryptocurrency.objects.filter(is_active=True, is_tradeable=True)
+    filter_backends = []  # Disable filters to avoid JSONField issues
 
 
 class InvestmentPerformanceView(APIView):
