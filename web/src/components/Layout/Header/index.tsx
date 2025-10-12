@@ -8,6 +8,7 @@ import Image from "next/image";
 import HeaderLink from "../Header/Navigation/HeaderLink";
 import MobileHeaderLink from "../Header/Navigation/MobileHeaderLink";
 import Signin from "@/components/Auth/SignIn";
+import { apiEndpoint } from '@/config/api';
 import SignUp from "@/components/Auth/SignUp";
 import { useTheme } from "next-themes";
 import { authService } from "@/services/authService";
@@ -65,7 +66,7 @@ const Header: React.FC = () => {
       // Check if user is superuser
       if (accessToken) {
         try {
-          const response = await fetch('http://localhost:8000/api/profile/', {
+          const response = await fetch(apiEndpoint('/api/profile/'), {
             headers: {
               'Authorization': `Bearer ${accessToken}`,
             },
