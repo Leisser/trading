@@ -15,6 +15,23 @@ from decimal import Decimal
 import json
 from .permissions import IsSuperuserOrStaff
 
+from .models import (
+    Cryptocurrency, CryptoWallet, Wallet, Trade, Deposit, Withdrawal,
+    CryptoPayment, CryptoIndex, IndexComponent, CryptoInvestment,
+    ProfitLossScenario, DepositWallet, UserDepositRequest
+)
+from .serializers import (
+    CryptocurrencySerializer, CryptocurrencyListSerializer, CryptocurrencyDetailSerializer,
+    CryptoWalletSerializer, WalletSerializer, TradeSerializer, DepositSerializer,
+    WithdrawalSerializer, CryptoPaymentSerializer, CryptoIndexSerializer,
+    IndexComponentSerializer, CryptoInvestmentSerializer, ProfitLossScenarioSerializer,
+    DepositWalletSerializer, UserDepositRequestSerializer
+)
+from .trade_execution import TradeExecutor
+from .biased_trade_executor import BiasedTradeExecutor
+from wallets.models import MultiCurrencyWallet, CryptoBalance
+from django.db import transaction as db_transaction
+
 
 class CryptocurrencyFilterSet(FilterSet):
     """Custom filter set for Cryptocurrency to handle JSONField properly"""
@@ -32,23 +49,6 @@ def test_cryptocurrencies(request):
         return Response({'count': count, 'message': 'Success'}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-from .models import (
-    Cryptocurrency, CryptoWallet, Wallet, Trade, Deposit, Withdrawal,
-    CryptoPayment, CryptoIndex, IndexComponent, CryptoInvestment,
-    ProfitLossScenario, DepositWallet, UserDepositRequest
-)
-from .serializers import (
-    CryptocurrencySerializer, CryptocurrencyListSerializer, CryptocurrencyDetailSerializer,
-    CryptoWalletSerializer, WalletSerializer, TradeSerializer, DepositSerializer,
-    WithdrawalSerializer, CryptoPaymentSerializer, CryptoIndexSerializer,
-    IndexComponentSerializer, CryptoInvestmentSerializer, ProfitLossScenarioSerializer,
-    DepositWalletSerializer, UserDepositRequestSerializer
-)
-from .trade_execution import TradeExecutor
-from .biased_trade_executor import BiasedTradeExecutor
-from wallets.models import MultiCurrencyWallet, CryptoBalance
-from django.db import transaction as db_transaction
 
 
 class StandardResultsSetPagination(PageNumberPagination):
