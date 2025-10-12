@@ -73,7 +73,7 @@ class CryptocurrencyListView(generics.ListAPIView):
     - ordering: Order by field (rank, market_cap, price_change_24h, etc.)
     """
     queryset = Cryptocurrency.objects.all()
-    serializer_class = CryptocurrencyListSerializer
+    serializer_class = CryptocurrencySerializer  # Use full serializer instead of list serializer
     permission_classes = [permissions.AllowAny]
     pagination_class = StandardResultsSetPagination
     filter_backends = []  # Disable all filters temporarily to isolate the issue
