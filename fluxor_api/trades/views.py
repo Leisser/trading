@@ -83,29 +83,7 @@ class CryptocurrencyListView(generics.ListAPIView):
     ordering = ['rank']
 
     def get_queryset(self):
-        queryset = super().get_queryset()
-        
-        # Custom filters
-        min_market_cap = self.request.query_params.get('min_market_cap')
-        max_market_cap = self.request.query_params.get('max_market_cap')
-        category = self.request.query_params.get('category')
-        
-        if min_market_cap:
-            try:
-                queryset = queryset.filter(market_cap__gte=Decimal(min_market_cap))
-            except (ValueError, TypeError):
-                pass
-        
-        if max_market_cap:
-            try:
-                queryset = queryset.filter(market_cap__lte=Decimal(max_market_cap))
-            except (ValueError, TypeError):
-                pass
-        
-        if category:
-            queryset = queryset.filter(categories__contains=[category])
-        
-        return queryset
+        return Cryptocurrency.objects.all()  # Simplified queryset
 
 
 class CryptocurrencyDetailView(generics.RetrieveAPIView):
