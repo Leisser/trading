@@ -10,9 +10,17 @@ from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, F, Sum
 from django_filters.rest_framework import DjangoFilterBackend
+from django_filters import FilterSet
 from decimal import Decimal
 import json
 from .permissions import IsSuperuserOrStaff
+
+
+class CryptocurrencyFilterSet(FilterSet):
+    """Custom filter set for Cryptocurrency to handle JSONField properly"""
+    class Meta:
+        model = Cryptocurrency
+        fields = ['is_featured', 'is_stablecoin', 'is_active']
 
 from .models import (
     Cryptocurrency, CryptoWallet, Wallet, Trade, Deposit, Withdrawal,
@@ -58,7 +66,7 @@ class CryptocurrencyListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['is_featured', 'is_stablecoin', 'is_active']  # Removed 'categories' - JSONField not supported
+    filterset_class = CryptocurrencyFilterSet  # Use custom filter set to avoid JSONField issues
     search_fields = ['symbol', 'name']
     ordering_fields = ['rank', 'market_cap', 'current_price', 'price_change_24h', 'volume_24h']
     ordering = ['rank']
