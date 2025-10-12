@@ -28,5 +28,5 @@ RUN mkdir -p /app/logs
 # Expose port
 EXPOSE 8000
 
-# Run the application
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Run the application with Daphne (ASGI server for WebSocket support)
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "fluxor_api.asgi:application"]

@@ -124,6 +124,7 @@ class Trade(models.Model):
         ('buy', 'Buy'),
         ('sell', 'Sell'),
         ('swap', 'Swap'),  # New: Crypto-to-crypto swap
+        ('hold', 'Hold'),  # New: Strategy/hold trades
     ]
     
     STATUS_CHOICES = [
@@ -137,12 +138,15 @@ class Trade(models.Model):
     cryptocurrency = models.ForeignKey(Cryptocurrency, on_delete=models.CASCADE, null=True, blank=True)
     trade_type = models.CharField(max_length=4, choices=TRADE_TYPE_CHOICES)
     amount = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    trade_sum = models.DecimalField(max_digits=20, decimal_places=8, default=0)  # Remaining amount to trade
     price = models.DecimalField(max_digits=20, decimal_places=8)
+    entry_price = models.DecimalField(max_digits=20, decimal_places=8, default=0)  # Initial entry price
     total_value = models.DecimalField(max_digits=20, decimal_places=2)
     leverage = models.IntegerField(default=1)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     pnl = models.DecimalField(max_digits=20, decimal_places=2, default=0)
     fees = models.DecimalField(max_digits=10, decimal_places=8, default=0)
+    is_strategy_trade = models.BooleanField(default=False)  # Distinguish strategy trades from wallet trades
     executed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -162,10 +166,24 @@ class Trade(models.Model):
         else:
             return f"{self.user.email} {self.trade_type} {self.btc_amount} BTC @ {self.usd_price} USD"
     
+    @property
+    def profit_loss(self):
+        """Alias for pnl for backward compatibility"""
+        return self.pnl
+    
     def save(self, *args, **kwargs):
         if not self.total_value:
             if self.price and self.amount:
                 self.total_value = self.amount * self.price
+        
+        # Initialize trade_sum to amount if not set
+        if not self.trade_sum:
+            self.trade_sum = self.amount
+        
+        # Initialize entry_price to price if not set
+        if not self.entry_price:
+            self.entry_price = self.price
+            
         super().save(*args, **kwargs)
 
 
@@ -257,8 +275,9 @@ class Deposit(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='deposits')
     amount = models.DecimalField(max_digits=20, decimal_places=8)
     cryptocurrency = models.ForeignKey(Cryptocurrency, on_delete=models.CASCADE)
+    deposit_wallet = models.ForeignKey('DepositWallet', on_delete=models.CASCADE, null=True, blank=True, related_name='deposits')
     transaction_hash = models.CharField(max_length=255, blank=True)
-    wallet_address = models.CharField(max_length=255)
+    wallet_address = models.CharField(max_length=255)  # Keep for backward compatibility
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     confirmed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

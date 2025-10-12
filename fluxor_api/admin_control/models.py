@@ -1,162 +1,264 @@
-"""
-Admin Control Models for Profit/Loss Scenarios and Trading Settings
-"""
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.auth import get_user_model
-from trades.models import CryptoIndex, Cryptocurrency
 
 User = get_user_model()
 
 
 class TradingSettings(models.Model):
-    """Global trading settings controlled by admin"""
+    """
+    Admin-controlled trading settings that determine user trade outcomes
+    """
+    # General Settings
+    is_active = models.BooleanField(default=True, help_text="Enable/disable biased trading")
     
-    PROFIT_LOSS_MODES = [
-        ('manual', 'Manual Control'),
-        ('automatic', 'Automatic Based on Market'),
-        ('simulated', 'Simulated Trading'),
-        ('custom', 'Custom Scenarios'),
-    ]
+    # IDLE MODE (No active user trading)
+    idle_profit_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=5.00,
+        help_text="Profit percentage when no users are actively trading"
+    )
     
-    # Global Settings
-    trading_enabled = models.BooleanField(default=True)
-    maintenance_mode = models.BooleanField(default=False)
-    profit_loss_mode = models.CharField(max_length=10, choices=PROFIT_LOSS_MODES, default='automatic')
+    idle_duration_seconds = models.IntegerField(
+        default=1800,  # 30 minutes
+        help_text="Trade duration in idle mode (seconds)"
+    )
     
-    # Default Rates
-    default_profit_rate = models.DecimalField(max_digits=10, decimal_places=4, default=5.0)  # % per hour
-    default_loss_rate = models.DecimalField(max_digits=10, decimal_places=4, default=2.0)  # % per hour
-    max_profit_rate = models.DecimalField(max_digits=10, decimal_places=4, default=100.0)
-    max_loss_rate = models.DecimalField(max_digits=10, decimal_places=4, default=50.0)
+    # ACTIVE MODE (Users actively trading)
+    active_win_rate_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=20.00,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Probability of profit when users are actively trading (0-100%)"
+    )
     
-    # Index Settings
-    index_appreciation_rate = models.DecimalField(max_digits=10, decimal_places=4, default=10.0)  # % per day
-    index_depreciation_rate = models.DecimalField(max_digits=10, decimal_places=4, default=5.0)  # % per day
-    index_volatility_factor = models.DecimalField(max_digits=5, decimal_places=2, default=1.5)
+    active_profit_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=10.00,
+        help_text="Profit percentage when users win in active mode"
+    )
     
-    # Update Frequencies (in seconds)
-    price_update_frequency = models.IntegerField(default=1)  # Every 1 second
-    investment_update_frequency = models.IntegerField(default=5)  # Every 5 seconds
-    portfolio_calculation_frequency = models.IntegerField(default=10)  # Every 10 seconds
+    active_loss_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=80.00,
+        help_text="Loss percentage when users lose in active mode"
+    )
     
-    # Trading Limits
-    min_trade_amount = models.DecimalField(max_digits=20, decimal_places=8, default=0.001)
-    max_trade_amount = models.DecimalField(max_digits=20, decimal_places=8, default=100.0)
-    min_investment_amount = models.DecimalField(max_digits=20, decimal_places=8, default=0.01)
+    active_duration_seconds = models.IntegerField(
+        default=300,  # 5 minutes
+        help_text="Trade duration in active mode (seconds)"
+    )
     
-    # Fees
-    trading_fee_percentage = models.DecimalField(max_digits=5, decimal_places=4, default=0.001)  # 0.1%
-    withdrawal_fee_percentage = models.DecimalField(max_digits=5, decimal_places=4, default=0.005)  # 0.5%
-    management_fee_percentage = models.DecimalField(max_digits=5, decimal_places=4, default=0.02)  # 2% annually
+    # Legacy Win/Loss Configuration (kept for backward compatibility)
+    win_rate_percentage = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=20.00,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Percentage of trades that should result in profit (0-100%)"
+    )
     
-    # Timestamps
+    loss_rate_percentage = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=80.00,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Percentage of trades that should result in loss (0-100%)"
+    )
+    
+    # Profit/Loss Magnitude
+    min_profit_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=5.00,
+        help_text="Minimum profit percentage for winning trades"
+    )
+    
+    max_profit_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=15.00,
+        help_text="Maximum profit percentage for winning trades"
+    )
+    
+    min_loss_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=10.00,
+        help_text="Minimum loss percentage for losing trades"
+    )
+    
+    max_loss_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=30.00,
+        help_text="Maximum loss percentage for losing trades"
+    )
+    
+    # Time Periods
+    min_trade_duration_seconds = models.IntegerField(
+        default=30,
+        help_text="Minimum trade duration in seconds"
+    )
+    
+    max_trade_duration_seconds = models.IntegerField(
+        default=14400,  # 4 hours
+        help_text="Maximum trade duration in seconds"
+    )
+    
+    # Market Volatility Simulation
+    price_volatility_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=2.00,
+        help_text="Price volatility for live data simulation (±%)"
+    )
+    
+    update_interval_seconds = models.IntegerField(
+        default=5,
+        help_text="Price update interval for WebSocket in seconds"
+    )
+    
+    # Real Price Integration
+    use_real_prices = models.BooleanField(
+        default=False,
+        help_text="Use real cryptocurrency prices from exchanges (CoinGecko/CCXT)"
+    )
+    
+    # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    updated_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        related_name='trading_settings_updates'
+    )
     
     class Meta:
         verbose_name = "Trading Settings"
         verbose_name_plural = "Trading Settings"
     
     def __str__(self):
-        return f"Trading Settings - {self.updated_at}"
+        return f"Trading Settings (Win: {self.win_rate_percentage}%, Loss: {self.loss_rate_percentage}%)"
+    
+    def save(self, *args, **kwargs):
+        # Ensure win_rate + loss_rate = 100%
+        if self.win_rate_percentage + self.loss_rate_percentage != 100:
+            # Auto-adjust loss rate
+            self.loss_rate_percentage = 100 - self.win_rate_percentage
+        super().save(*args, **kwargs)
+    
+    @classmethod
+    def get_active_settings(cls):
+        """Get the active trading settings or create default"""
+        settings, created = cls.objects.get_or_create(
+            is_active=True,
+            defaults={
+                'idle_profit_percentage': 5.00,
+                'idle_duration_seconds': 1800,  # 30 minutes
+                'active_win_rate_percentage': 20.00,
+                'active_profit_percentage': 10.00,
+                'active_loss_percentage': 80.00,
+                'active_duration_seconds': 300,  # 5 minutes
+                'win_rate_percentage': 20.00,
+                'loss_rate_percentage': 80.00,
+                'min_profit_percentage': 5.00,
+                'max_profit_percentage': 15.00,
+                'min_loss_percentage': 10.00,
+                'max_loss_percentage': 30.00,
+            }
+        )
+        return settings
+    
+    @classmethod
+    def is_user_actively_trading(cls):
+        """Check if any user has placed a trade in the last 10 minutes"""
+        from django.utils import timezone
+        from datetime import timedelta
+        from trades.models import Trade
+        
+        ten_minutes_ago = timezone.now() - timedelta(minutes=10)
+        recent_trades = Trade.objects.filter(
+            created_at__gte=ten_minutes_ago
+        ).exists()
+        
+        return recent_trades
+    
+    @classmethod
+    def set_to_default(cls):
+        """Reset to default settings"""
+        settings = cls.get_active_settings()
+        settings.idle_profit_percentage = 5.00
+        settings.idle_duration_seconds = 1800  # 30 minutes
+        settings.active_win_rate_percentage = 20.00
+        settings.active_profit_percentage = 10.00
+        settings.active_loss_percentage = 80.00
+        settings.active_duration_seconds = 300  # 5 minutes
+        settings.save()
+        return settings
 
 
-class ProfitLossScenario(models.Model):
-    """Custom profit/loss scenarios for admin control"""
-    
-    SCENARIO_TYPES = [
-        ('profit', 'Profit Scenario'),
-        ('loss', 'Loss Scenario'),
-        ('mixed', 'Mixed Scenario'),
+class UserTradeOutcome(models.Model):
+    """
+    Track predetermined outcomes for user trades
+    """
+    OUTCOME_CHOICES = [
+        ('win', 'Win'),
+        ('loss', 'Loss'),
     ]
     
-    TIME_UNITS = [
-        ('seconds', 'Seconds'),
-        ('minutes', 'Minutes'),
-        ('hours', 'Hours'),
-        ('days', 'Days'),
-        ('weeks', 'Weeks'),
-        ('months', 'Months'),
-    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trade_outcomes')
+    trade = models.OneToOneField('trades.Trade', on_delete=models.CASCADE, related_name='outcome', null=True, blank=True)
     
-    name = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
-    scenario_type = models.CharField(max_length=10, choices=SCENARIO_TYPES)
+    # Predetermined outcome
+    outcome = models.CharField(max_length=4, choices=OUTCOME_CHOICES)
+    outcome_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        help_text="Profit or loss percentage"
+    )
     
-    # Profit/Loss Parameters
-    percentage_change = models.DecimalField(max_digits=10, decimal_places=4)  # +100 for 100% profit, -50 for 50% loss
-    time_duration = models.IntegerField()  # Duration value
-    time_unit = models.CharField(max_length=10, choices=TIME_UNITS)
+    # Timing
+    duration_seconds = models.IntegerField(help_text="Trade duration in seconds")
+    target_close_time = models.DateTimeField(help_text="When the trade should close")
     
-    # Target Settings
-    target_crypto_index = models.ForeignKey(CryptoIndex, on_delete=models.CASCADE, null=True, blank=True, related_name='admin_scenarios')
-    target_cryptocurrency = models.ForeignKey(Cryptocurrency, on_delete=models.CASCADE, null=True, blank=True, related_name='admin_scenarios')
-    apply_to_all_investments = models.BooleanField(default=False)
-    apply_to_all_users = models.BooleanField(default=False)
+    # Status
+    is_executed = models.BooleanField(default=False)
+    executed_at = models.DateTimeField(null=True, blank=True)
     
-    # Execution Settings
-    is_active = models.BooleanField(default=False)
-    execute_immediately = models.BooleanField(default=False)
-    scheduled_execution = models.DateTimeField(null=True, blank=True)
-    repeat_execution = models.BooleanField(default=False)
-    repeat_interval_hours = models.IntegerField(default=24)
-    
-    # Tracking
-    times_executed = models.IntegerField(default=0)
-    last_executed = models.DateTimeField(null=True, blank=True)
-    next_execution = models.DateTimeField(null=True, blank=True)
-    
-    # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_admin_scenarios')
-    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         ordering = ['-created_at']
-        verbose_name = "Profit/Loss Scenario"
-        verbose_name_plural = "Profit/Loss Scenarios"
     
     def __str__(self):
-        return f"{self.name} - {self.percentage_change}% in {self.time_duration} {self.time_unit}"
-    
-    @property
-    def duration_in_seconds(self):
-        """Convert time duration to seconds"""
-        multipliers = {
-            'seconds': 1,
-            'minutes': 60,
-            'hours': 3600,
-            'days': 86400,
-            'weeks': 604800,
-            'months': 2592000,  # Approximate
-        }
-        return self.time_duration * multipliers.get(self.time_unit, 1)
+        return f"{self.user.email} - {self.outcome} ({self.outcome_percentage}%)"
 
 
-class ScenarioExecution(models.Model):
-    """Track scenario executions"""
+class MarketDataSimulation(models.Model):
+    """
+    Store simulated market data for WebSocket streaming
+    """
+    cryptocurrency_symbol = models.CharField(max_length=10)
+    timestamp = models.DateTimeField(auto_now_add=True)
     
-    scenario = models.ForeignKey(ProfitLossScenario, on_delete=models.CASCADE, related_name='executions')
-    executed_at = models.DateTimeField(auto_now_add=True)
-    executed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    
-    # Execution details
-    affected_investments = models.IntegerField(default=0)
-    affected_users = models.IntegerField(default=0)
-    total_value_change = models.DecimalField(max_digits=20, decimal_places=2, default=0)
-    
-    # Status
-    status = models.CharField(max_length=20, choices=[
-        ('success', 'Success'),
-        ('partial', 'Partial Success'),
-        ('failed', 'Failed'),
-    ], default='success')
-    
-    error_message = models.TextField(blank=True)
+    # OHLCV data
+    open_price = models.DecimalField(max_digits=20, decimal_places=8)
+    high_price = models.DecimalField(max_digits=20, decimal_places=8)
+    low_price = models.DecimalField(max_digits=20, decimal_places=8)
+    close_price = models.DecimalField(max_digits=20, decimal_places=8)
+    volume = models.DecimalField(max_digits=20, decimal_places=8)
     
     class Meta:
-        ordering = ['-executed_at']
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['cryptocurrency_symbol', '-timestamp']),
+        ]
     
     def __str__(self):
-        return f"{self.scenario.name} - {self.executed_at} ({self.status})"
+        return f"{self.cryptocurrency_symbol} - {self.close_price} @ {self.timestamp}"

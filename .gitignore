@@ -308,3 +308,4 @@ safety-report.json
 *.bak
 *.backup
 *_backup_*
+fluxor_api/firebase_service_account.json

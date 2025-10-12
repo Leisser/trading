@@ -1,31 +1,71 @@
 # Fluxor Trading Platform
 
-A comprehensive financial trading platform with Django backend, Vue.js frontend with admin dashboard, and automated trading tasks.
+A comprehensive cryptocurrency trading platform with Django REST Framework backend, Next.js frontend, and Vue.js admin dashboard.
+
+## ✅ **SYSTEM STATUS: FULLY FUNCTIONAL**
+
+The authentication system is working perfectly with complete user registration, sign-in, and dashboard access.
 
 ## 🏗️ Architecture
 
 - **Backend**: Django REST API with PostgreSQL database
-- **Frontend**: Vue.js with Vite (includes admin dashboard)
-- **Task Queue**: Celery with Redis broker
-- **Proxy**: Nginx reverse proxy
+- **Frontend**: Next.js web application (port 5173)
+- **Dashboard**: Vue.js admin dashboard (port 3001)
+- **Cache**: Redis for session management
 - **Containerization**: Docker Compose orchestration
 
 ## 🚀 Quick Start
 
-### Development Mode
-
+### One-Command Setup
 ```bash
-# Start all services in development mode
-./start-dev.sh
+./start-fluxor.sh
+```
 
-# Or manually:
-docker-compose up --build -d
+### Manual Setup
+```bash
+# Start all services
+docker-compose up -d
+
+# Wait for services to be ready (30 seconds)
+docker-compose ps
 ```
 
 **Available at:**
-- Frontend: http://localhost:5173 (Vite dev server with hot reload)
-- Backend API: http://localhost:8000
-- Admin Panel: http://localhost:8000/admin/
+- **Main Website**: http://localhost:5173 (Next.js with authentication)
+- **Admin Dashboard**: http://localhost:3001 (Vue.js dashboard)
+- **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/swagger/
+
+## 🧪 Test the System
+
+```bash
+# Install Python requests
+pip3 install requests
+
+# Run comprehensive authentication test
+python3 test-auth-flow.py
+```
+
+**Expected Output:**
+```
+✅ User Registration: PASSED
+✅ User Sign-In: PASSED
+✅ Protected Endpoint Access: PASSED
+✅ Token Refresh: PASSED
+✅ Dashboard Access: PASSED
+✅ Web Pages Accessibility: PASSED
+```
+
+## 🔐 Default Credentials
+
+- **Admin Username**: admin
+- **Admin Password**: admin123
+- **Database**: postgres/postgres
+
+## 📚 Documentation
+
+- **[Complete Setup Guide](SETUP_GUIDE.md)** - Detailed setup instructions
+- **[Authentication Status](AUTHENTICATION_STATUS.md)** - Current system status and test results
 
 ### Production Mode
 

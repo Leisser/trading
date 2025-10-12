@@ -24,7 +24,7 @@ class User(AbstractUser):
         default='pending'
     )
     
-    # ID Verification
+    # ID Verification (deprecated - use VerificationDocument model instead)
     id_front_image = models.URLField(blank=True, null=True)
     id_back_image = models.URLField(blank=True, null=True)
     passport_image = models.URLField(blank=True, null=True)
@@ -160,7 +160,8 @@ class VerificationDocument(models.Model):
     )
     
     # Document Information
-    file_url = models.URLField()
+    file = models.FileField(upload_to='verification_documents/%Y/%m/%d/', null=True, blank=True)
+    file_url = models.URLField(blank=True, null=True)  # For backward compatibility
     file_name = models.CharField(max_length=255)
     file_size = models.PositiveIntegerField()
     mime_type = models.CharField(max_length=100)

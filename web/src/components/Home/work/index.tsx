@@ -22,15 +22,15 @@ const Work = () => {
 
   const services = [
     {
-      icon: "/images/icons/icon-consulting.svg",
+      icon: "images/icons/icon-consulting.svg",
       text: "Blockchain Consulting",
     },
     {
-      icon: "/images/icons/icon-blockchain.svg",
+      icon: "images/icons/icon-blockchain.svg",
       text: "Blockchain Solutions",
     },
     {
-      icon: "/images/icons/icon-Services.svg",
+      icon: "images/icons/icon-Services.svg",
       text: "Custom Development",
     },
   ];

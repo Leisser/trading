@@ -54,6 +54,7 @@ LOCAL_APPS = [
     'alerts',
     'order_management',
     'dashboard',
+    'file_uploads',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -139,6 +140,22 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# File upload settings
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+FILE_UPLOAD_PERMISSIONS = 0o644
+
+# KYC file settings
+KYC_UPLOAD_MAX_SIZE = 10 * 1024 * 1024  # 10MB
+KYC_ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'pdf']
+KYC_ALLOWED_MIME_TYPES = [
+    'image/jpeg',
+    'image/jpg', 
+    'image/png',
+    'image/webp',
+    'application/pdf'
+]
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -241,7 +258,9 @@ if os.path.exists(os.path.join(BASE_DIR, 'logs')):
     LOGGING['loggers']['django']['handlers'].append('file')
 
 # Firebase settings
-FIREBASE_ADMIN_SDK_CONFIG = config('FIREBASE_ADMIN_SDK_CONFIG', default='')
+FIREBASE_PROJECT_ID = config('FIREBASE_PROJECT_ID', default='fluxor-434ed')
+FIREBASE_API_KEY = config('FIREBASE_API_KEY', default='AIzaSyC2EjPY7nG7uFyu6l2ymNlTGxTecOD69gU')
+FIREBASE_SERVICE_ACCOUNT_PATH = os.path.join(BASE_DIR, 'firebase_service_account.json')
 
 # Security settings
 SECURE_BROWSER_XSS_FILTER = True

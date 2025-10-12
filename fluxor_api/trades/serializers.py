@@ -242,18 +242,21 @@ class DepositWalletSerializer(serializers.ModelSerializer):
 
 class UserDepositRequestSerializer(serializers.ModelSerializer):
     """Serializer for UserDepositRequest model"""
-    cryptocurrency_symbol = serializers.CharField(source='cryptocurrency.symbol', read_only=True)
+    cryptocurrency_symbol = serializers.CharField(source='deposit_wallet.cryptocurrency.symbol', read_only=True)
+    cryptocurrency_name = serializers.CharField(source='deposit_wallet.cryptocurrency.name', read_only=True)
     user_email = serializers.CharField(source='user.email', read_only=True)
+    deposit_wallet_name = serializers.CharField(source='deposit_wallet.wallet_name', read_only=True)
     
     class Meta:
         model = UserDepositRequest
         fields = [
-            'id', 'user', 'user_email', 'cryptocurrency', 'cryptocurrency_symbol',
-            'amount', 'wallet_address', 'transaction_hash', 'status',
-            'confirmation_count', 'required_confirmations', 'created_at',
-            'confirmed_at', 'updated_at'
+            'id', 'user', 'user_email', 'deposit_wallet', 'deposit_wallet_name',
+            'cryptocurrency_symbol', 'cryptocurrency_name', 'amount', 
+            'transaction_hash', 'from_address', 'status', 'confirmation_blocks',
+            'required_confirmations', 'reviewed_by', 'review_notes', 'reviewed_at',
+            'created_at', 'confirmed_at', 'expires_at'
         ]
         read_only_fields = [
-            'id', 'user', 'confirmation_count', 'created_at', 'confirmed_at',
-            'updated_at'
+            'id', 'user', 'confirmation_blocks', 'created_at', 'confirmed_at',
+            'reviewed_at'
         ]

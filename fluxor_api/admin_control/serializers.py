@@ -1,116 +1,83 @@
-"""
-Admin Control Serializers
-"""
 from rest_framework import serializers
-from .models import TradingSettings, ProfitLossScenario, ScenarioExecution
-from trades.models import CryptoIndex, Cryptocurrency
+from .models import TradingSettings, UserTradeOutcome, MarketDataSimulation
 
 
 class TradingSettingsSerializer(serializers.ModelSerializer):
-    """Serializer for TradingSettings model"""
+    """Serializer for admin trading settings"""
     
     class Meta:
         model = TradingSettings
         fields = [
-            'id', 'trading_enabled', 'maintenance_mode', 'profit_loss_mode',
-            'default_profit_rate', 'default_loss_rate', 'max_profit_rate', 'max_loss_rate',
-            'index_appreciation_rate', 'index_depreciation_rate', 'index_volatility_factor',
-            'price_update_frequency', 'investment_update_frequency', 'portfolio_calculation_frequency',
-            'min_trade_amount', 'max_trade_amount', 'min_investment_amount',
-            'trading_fee_percentage', 'withdrawal_fee_percentage', 'management_fee_percentage',
-            'created_at', 'updated_at', 'updated_by'
+            'id', 'is_active',
+            # Idle Mode
+            'idle_profit_percentage', 'idle_duration_seconds',
+            # Active Mode
+            'active_win_rate_percentage', 'active_profit_percentage',
+            'active_loss_percentage', 'active_duration_seconds',
+            # Legacy
+            'win_rate_percentage', 'loss_rate_percentage',
+            'min_profit_percentage', 'max_profit_percentage',
+            'min_loss_percentage', 'max_loss_percentage',
+            'min_trade_duration_seconds', 'max_trade_duration_seconds',
+            'price_volatility_percentage', 'update_interval_seconds',
+            # Real Prices
+            'use_real_prices',
+            'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
-
-
-class ProfitLossScenarioSerializer(serializers.ModelSerializer):
-    """Serializer for ProfitLossScenario model"""
-    
-    duration_in_seconds = serializers.ReadOnlyField()
-    
-    class Meta:
-        model = ProfitLossScenario
-        fields = [
-            'id', 'name', 'description', 'scenario_type', 'percentage_change',
-            'time_duration', 'time_unit', 'duration_in_seconds',
-            'target_crypto_index', 'target_cryptocurrency', 'apply_to_all_investments',
-            'apply_to_all_users', 'is_active', 'execute_immediately',
-            'scheduled_execution', 'repeat_execution', 'repeat_interval_hours',
-            'times_executed', 'last_executed', 'next_execution',
-            'created_at', 'created_by', 'updated_at'
-        ]
-        read_only_fields = ['id', 'times_executed', 'last_executed', 'created_at', 'updated_at']
-
-
-class CreateProfitLossScenarioSerializer(serializers.ModelSerializer):
-    """Serializer for creating profit/loss scenarios"""
-    
-    class Meta:
-        model = ProfitLossScenario
-        fields = [
-            'name', 'description', 'scenario_type', 'percentage_change',
-            'time_duration', 'time_unit', 'target_crypto_index', 'target_cryptocurrency',
-            'apply_to_all_investments', 'apply_to_all_users', 'execute_immediately',
-            'scheduled_execution', 'repeat_execution', 'repeat_interval_hours'
-        ]
     
     def validate(self, data):
-        """Validate scenario data"""
-        if not data.get('target_crypto_index') and not data.get('target_cryptocurrency') and not data.get('apply_to_all_investments'):
-            raise serializers.ValidationError("Must specify a target (index, crypto, or all investments)")
+        """Validate settings"""
+        # Validate win_rate for legacy compatibility
+        win_rate = data.get('win_rate_percentage', 0)
+        loss_rate = data.get('loss_rate_percentage', 0)
         
-        if data.get('target_crypto_index') and data.get('target_cryptocurrency'):
-            raise serializers.ValidationError("Cannot specify both target_crypto_index and target_cryptocurrency")
+        if win_rate + loss_rate != 100:
+            # Auto-adjust loss rate
+            data['loss_rate_percentage'] = 100 - win_rate
         
-        if data.get('percentage_change') == 0:
-            raise serializers.ValidationError("Percentage change cannot be zero")
+        # Validate active_win_rate_percentage is 0-100
+        active_win_rate = data.get('active_win_rate_percentage')
+        if active_win_rate is not None:
+            if active_win_rate < 0 or active_win_rate > 100:
+                raise serializers.ValidationError({
+                    'active_win_rate_percentage': 'Must be between 0 and 100'
+                })
         
         return data
 
 
-class ScenarioExecutionSerializer(serializers.ModelSerializer):
-    """Serializer for ScenarioExecution model"""
+class UserTradeOutcomeSerializer(serializers.ModelSerializer):
+    """Serializer for user trade outcomes"""
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    cryptocurrency_symbol = serializers.CharField(source='trade.cryptocurrency.symbol', read_only=True)
+    seconds_remaining = serializers.SerializerMethodField()
     
     class Meta:
-        model = ScenarioExecution
+        model = UserTradeOutcome
         fields = [
-            'id', 'scenario', 'executed_at', 'executed_by', 'affected_investments',
-            'affected_users', 'total_value_change', 'status', 'error_message'
+            'id', 'user_email', 'cryptocurrency_symbol', 'outcome',
+            'outcome_percentage', 'duration_seconds', 'target_close_time',
+            'seconds_remaining', 'is_executed', 'executed_at', 'created_at'
         ]
-        read_only_fields = ['id', 'executed_at']
-
-
-class ExecuteScenarioSerializer(serializers.Serializer):
-    """Serializer for executing scenarios"""
+        read_only_fields = ['id', 'created_at', 'executed_at']
     
-    force_execute = serializers.BooleanField(default=False)
-    dry_run = serializers.BooleanField(default=False)
-    notes = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    def get_seconds_remaining(self, obj):
+        """Calculate seconds remaining until target close time"""
+        from django.utils import timezone
+        if obj.is_executed:
+            return 0
+        remaining = (obj.target_close_time - timezone.now()).total_seconds()
+        return max(0, int(remaining))
 
 
-class TradingSettingsUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for updating trading settings"""
+class MarketDataSimulationSerializer(serializers.ModelSerializer):
+    """Serializer for market data simulation"""
     
     class Meta:
-        model = TradingSettings
+        model = MarketDataSimulation
         fields = [
-            'trading_enabled', 'maintenance_mode', 'profit_loss_mode',
-            'default_profit_rate', 'default_loss_rate', 'max_profit_rate', 'max_loss_rate',
-            'index_appreciation_rate', 'index_depreciation_rate', 'index_volatility_factor',
-            'price_update_frequency', 'investment_update_frequency', 'portfolio_calculation_frequency',
-            'min_trade_amount', 'max_trade_amount', 'min_investment_amount',
-            'trading_fee_percentage', 'withdrawal_fee_percentage', 'management_fee_percentage'
+            'id', 'cryptocurrency_symbol', 'timestamp',
+            'open_price', 'high_price', 'low_price', 'close_price', 'volume'
         ]
-    
-    def validate(self, data):
-        """Validate trading settings"""
-        if data.get('default_profit_rate', 0) > data.get('max_profit_rate', 100):
-            raise serializers.ValidationError("Default profit rate cannot exceed max profit rate")
-        
-        if data.get('default_loss_rate', 0) > data.get('max_loss_rate', 50):
-            raise serializers.ValidationError("Default loss rate cannot exceed max loss rate")
-        
-        if data.get('min_trade_amount', 0) > data.get('max_trade_amount', 100):
-            raise serializers.ValidationError("Min trade amount cannot exceed max trade amount")
-        
-        return data
+        read_only_fields = ['id', 'timestamp']

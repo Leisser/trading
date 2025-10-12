@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #fff;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .connected { background: #10b981; }
+        .disconnected { background: #ef4444; }
+        .message {
+            background: #2d2d44;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        input {
+            padding: 10px;
+            margin: 5px;
+            background: #2d2d44;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    
+    <div id="status" class="status disconnected">
+        Status: Disconnected
+    </div>
+    
+    <div>
+        <label>Symbol: </label>
+        <input type="text" id="symbolInput" value="BTC" />
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+    </div>
+    
+    <h3>Messages:</h3>
+    <div id="messages"></div>
+    
+    <script>
+        let ws = null;
+        
+        function connect() {
+            const symbol = document.getElementById('symbolInput').value || 'BTC';
+            const wsUrl = `ws://localhost:8000/ws/market/${symbol}/`;
+            
+            log(`Connecting to: ${wsUrl}`);
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                log('✅ Connected!');
+                document.getElementById('status').textContent = 'Status: Connected';
+                document.getElementById('status').className = 'status connected';
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                log(`📊 Message: ${JSON.stringify(data, null, 2)}`);
+            };
+            
+            ws.onerror = (error) => {
+                log(`❌ Error: ${error}`);
+            };
+            
+            ws.onclose = (event) => {
+                log(`🔌 Disconnected. Code: ${event.code}, Reason: ${event.reason}`);
+                document.getElementById('status').textContent = 'Status: Disconnected';
+                document.getElementById('status').className = 'status disconnected';
+            };
+        }
+        
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+        
+        function log(message) {
+            const messagesDiv = document.getElementById('messages');
+            const messageEl = document.createElement('div');
+            messageEl.className = 'message';
+            messageEl.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            messagesDiv.insertBefore(messageEl, messagesDiv.firstChild);
+        }
+        
+        // Auto-connect on load
+        setTimeout(connect, 1000);
+    </script>
+</body>
+</html>
+

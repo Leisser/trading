@@ -12,7 +12,7 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('access_token')
+    const token = localStorage.getItem('auth_token') || localStorage.getItem('token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -112,4 +112,177 @@ export const dashboardAPI = {
   }
 }
 
-export default api
+// Authentication API methods
+export const authAPI = {
+  login: async (credentials: { username: string; password: string }) => {
+    const response = await api.post('/token/', credentials)
+    return response
+  },
+
+  logout: async () => {
+    const response = await api.post('/logout/')
+    return response
+  },
+
+  refresh: async (refreshToken: string) => {
+    const response = await api.post('/token/refresh/', { refresh: refreshToken })
+    return response
+  },
+
+  getProfile: async () => {
+    const response = await api.get('/profile/')
+    return response
+  },
+
+  changePassword: async (data: { currentPassword: string; newPassword: string }) => {
+    const response = await api.post('/change-password/', data)
+    return response
+  }
+}
+
+// User Management API methods
+export const userAPI = {
+  getUsers: async (params?: any) => {
+    const response = await api.get('/admin/users/', { params })
+    return response.data
+  },
+
+  getUser: async (id: number) => {
+    const response = await api.get(`/admin/users/${id}/`)
+    return response.data
+  },
+
+  updateUser: async (id: number, data: any) => {
+    const response = await api.patch(`/admin/users/${id}/`, data)
+    return response.data
+  },
+
+  deleteUser: async (id: number) => {
+    const response = await api.delete(`/admin/users/${id}/`)
+    return response.data
+  },
+
+  getUserWallets: async (userId: number) => {
+    const response = await api.get(`/admin/users/${userId}/wallets/`)
+    return response.data
+  },
+
+  getUserTrades: async (userId: number) => {
+    const response = await api.get(`/admin/users/${userId}/trades/`)
+    return response.data
+  }
+}
+
+// Wallet Management API methods
+export const walletAPI = {
+  getWallets: async () => {
+    const response = await api.get('/wallets/')
+    return response.data
+  },
+
+  getWallet: async (id: number) => {
+    const response = await api.get(`/wallets/${id}/`)
+    return response.data
+  },
+
+  getDepositRequests: async (status?: string) => {
+    const params = status ? { status } : {}
+    const response = await api.get('/api/admin/deposits/', { params })
+    return response.data
+  },
+
+  approveDeposit: async (id: number, data: any = {}) => {
+    const response = await api.post(`/api/admin/deposits/${id}/approve/`, { action: 'approve', ...data })
+    return response.data
+  },
+
+  rejectDeposit: async (id: number, reason: string = '') => {
+    const response = await api.post(`/api/admin/deposits/${id}/approve/`, { action: 'reject', admin_notes: reason })
+    return response.data
+  },
+
+  getWithdrawRequests: async (status?: string) => {
+    const params = status ? { status } : {}
+    const response = await api.get('/api/admin/withdrawals/', { params })
+    return response.data
+  },
+
+  approveWithdrawal: async (id: number, data: any = {}) => {
+    const response = await api.post(`/api/admin/withdrawals/${id}/approve/`, { action: 'approve', ...data })
+    return response.data
+  },
+
+  rejectWithdrawal: async (id: number, reason: string = '') => {
+    const response = await api.post(`/api/admin/withdrawals/${id}/approve/`, { action: 'reject', admin_notes: reason })
+    return response.data
+  },
+
+  getDepositWallets: async () => {
+    const response = await api.get('/trades/deposit-wallets/')
+    return response.data
+  },
+
+  createDepositWallet: async (data: any) => {
+    const response = await api.post('/trades/deposit-wallets/', data)
+    return response.data
+  },
+
+  updateDepositWallet: async (id: number, data: any) => {
+    const response = await api.patch(`/trades/deposit-wallets/${id}/`, data)
+    return response.data
+  }
+}
+
+// Trading Management API methods
+export const tradingAPI = {
+  getTrades: async (params?: any) => {
+    const response = await api.get('/trades/', { params })
+    return response.data
+  },
+
+  getTrade: async (id: number) => {
+    const response = await api.get(`/trades/${id}/`)
+    return response.data
+  },
+
+  getOrders: async (params?: any) => {
+    const response = await api.get('/trading/orders/', { params })
+    return response.data
+  },
+
+  cancelOrder: async (id: number) => {
+    const response = await api.post(`/trading/orders/${id}/cancel/`)
+    return response.data
+  },
+
+  getTradingPairs: async () => {
+    const response = await api.get('/market/trading-pairs/')
+    return response.data
+  },
+
+  updateTradingPair: async (id: number, data: any) => {
+    const response = await api.patch(`/market/trading-pairs/${id}/`, data)
+    return response.data
+  },
+
+  enableTrading: async (pairId: number) => {
+    const response = await api.post(`/market/trading-pairs/${pairId}/enable/`)
+    return response.data
+  },
+
+  disableTrading: async (pairId: number) => {
+    const response = await api.post(`/market/trading-pairs/${pairId}/disable/`)
+    return response.data
+  }
+}
+
+// Create a combined API object
+const combinedAPI = {
+  auth: authAPI,
+  users: userAPI,
+  wallets: walletAPI,
+  trading: tradingAPI,
+  dashboard: dashboardAPI
+}
+
+export default combinedAPI

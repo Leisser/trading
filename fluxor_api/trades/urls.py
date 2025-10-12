@@ -45,7 +45,32 @@ urlpatterns = [
     # Investment endpoints
     path('investments/', views.CryptoInvestmentListView.as_view(), name='crypto_investment_list'),
     path('investments/<int:pk>/', views.CryptoInvestmentDetailView.as_view(), name='crypto_investment_detail'),
-    
+
+    # Dashboard stats
+    path('dashboard/stats/', views.dashboard_stats, name='dashboard_stats'),
+
+    # Admin users list
+    path('admin/users/', views.admin_users_list, name='admin_users_list'),
+
+    # Admin endpoints for wallet management
+    path('admin/deposits/', views.AdminDepositRequestListView.as_view(), name='admin_deposit_list'),
+    path('admin/deposits/<int:deposit_id>/approve/', views.AdminDepositApprovalView.as_view(), name='admin_deposit_approve'),
+    path('admin/withdrawals/', views.AdminWithdrawalRequestListView.as_view(), name='admin_withdrawal_list'),
+    path('admin/withdrawals/<int:withdrawal_id>/approve/', views.AdminWithdrawalApprovalView.as_view(), name='admin_withdrawal_approve'),
+
+    # Trading endpoints
+    path('trading/pairs/', views.TradingPairListView.as_view(), name='trading_pairs'),
+    path('trading/orderbook/<str:pair_id>/', views.OrderBookView.as_view(), name='order_book'),
+    path('trading/orders/', views.PlaceOrderView.as_view(), name='place_order'),
+    path('trading/orders/user/', views.UserOrdersView.as_view(), name='user_orders'),
+
+    # New trade execution endpoints with balance validation
+    path('trading/execute/', views.execute_trade, name='execute_trade'),
+    path('trading/balance/check/', views.check_balance, name='check_balance'),
+    path('trading/history/', views.get_trading_history, name='trading_history'),
+    path('trading/deduct-balance/', views.DeductBalanceView.as_view(), name='deduct_balance'),
+    path('trading/stop/<int:trade_id>/', views.StopTradeView.as_view(), name='stop_trade'),
+
     # Include router URLs
     path('', include(router.urls)),
 ]

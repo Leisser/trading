@@ -1,28 +1,42 @@
-/* Global styles for Fluxor Dashboard */
+/* Global styles for Fluxor Dashboard - Matching Web App Theme */
 :root {
-  --primary-color: #8b5cf6;
-  --primary-dark: #7c3aed;
-  --secondary-color: #f59e0b;
-  --success-color: #10b981;
-  --error-color: #ef4444;
-  --warning-color: #f59e0b;
-  --info-color: #3b82f6;
-  
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
-  --bg-tertiary: #f1f5f9;
-  --bg-dark: #1e293b;
-  --bg-darker: #0f172a;
-  
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
-  --text-muted: #94a3b8;
+  /* Primary Colors - Matching Web App */
+  --primary-color: #99E39E;
+  --primary-dark: #477E70;
+  --secondary-color: #1DC8CD;
+  --success-color: #3cd278;
+  --error-color: #CF3127;
+  --warning-color: #F7931A;
+  --info-color: #1DC8CD;
+
+  /* Background Colors - Dark Theme */
+  --bg-primary: #000510;
+  --bg-secondary: #1E2229;
+  --bg-tertiary: #282C36;
+  --bg-dark: #2F3543;
+  --bg-darker: #000510;
+  --bg-card: #1E2229;
+
+  /* Text Colors */
+  --text-primary: #ffffff;
+  --text-secondary: #d8dbdb;
+  --text-muted: #959595;
   --text-light: #ffffff;
-  
-  --border-color: #e2e8f0;
+  --text-dark: #263238;
+
+  /* Additional Theme Colors */
+  --teal-green: #477E70;
+  --charcoal-gray: #666C78;
+  --deep-slate: #282C36;
+  --slate-gray: #2F3543;
+  --dark-light: #0c372a;
+
+  /* UI Elements */
+  --border-color: #959595;
   --border-radius: 8px;
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 * {
@@ -37,7 +51,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-primary);
   color: var(--text-primary);
   height: 100vh;
   width: 100vw;

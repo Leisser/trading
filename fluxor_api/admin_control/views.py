@@ -1,223 +1,153 @@
-"""
-Admin Control API Views for Profit/Loss Scenarios and Trading Settings
-"""
-from rest_framework import generics, status, permissions
+from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.views import APIView
-from django.utils import timezone
-from django.db.models import Q, Count, Sum
-from datetime import datetime, timedelta
-from decimal import Decimal
+from django.shortcuts import get_object_or_404
 
-from .models import TradingSettings, ProfitLossScenario, ScenarioExecution
+from .models import TradingSettings, UserTradeOutcome, MarketDataSimulation
 from .serializers import (
-    TradingSettingsSerializer, ProfitLossScenarioSerializer, CreateProfitLossScenarioSerializer,
-    ScenarioExecutionSerializer, ExecuteScenarioSerializer, TradingSettingsUpdateSerializer
+    TradingSettingsSerializer,
+    UserTradeOutcomeSerializer,
+    MarketDataSimulationSerializer
 )
-from investments.models import Investment
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
 
 
-class IsAdminOrReadOnly(permissions.BasePermission):
-    """Custom permission to only allow admins to modify data"""
+class TradingSettingsView(generics.RetrieveUpdateAPIView):
+    """
+    Get or update trading settings (Admin only)
+    """
+    queryset = TradingSettings.objects.all()
+    serializer_class = TradingSettingsSerializer
+    permission_classes = [permissions.IsAdminUser]
     
-    def has_permission(self, request, view):
-        if request.method in permissions.SAFE_METHODS:
-            return request.user.is_authenticated
-        return request.user.is_authenticated and request.user.is_staff
-
-
-class TradingSettingsView(APIView):
-    """Manage global trading settings"""
-    permission_classes = [IsAdminOrReadOnly]
+    def get_object(self):
+        """Get the active trading settings"""
+        return TradingSettings.get_active_settings()
     
-    def get(self, request):
-        """Get current trading settings"""
-        try:
-            settings = TradingSettings.objects.first()
-            if not settings:
-                # Create default settings if none exist
-                settings = TradingSettings.objects.create()
-            
-            serializer = TradingSettingsSerializer(settings)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-    
-    @swagger_auto_schema(
-        request_body=TradingSettingsUpdateSerializer,
-        responses={200: TradingSettingsSerializer}
-    )
-    def put(self, request):
-        """Update trading settings"""
-        try:
-            settings = TradingSettings.objects.first()
-            if not settings:
-                settings = TradingSettings.objects.create()
-            
-            serializer = TradingSettingsUpdateSerializer(settings, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save(updated_by=request.user)
-                response_serializer = TradingSettingsSerializer(settings)
-                return Response(response_serializer.data, status=status.HTTP_200_OK)
-            
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-        except Exception as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+    def perform_update(self, serializer):
+        """Save with user who updated"""
+        serializer.save(updated_by=self.request.user)
 
 
-class ProfitLossScenarioListView(generics.ListCreateAPIView):
-    """List and create profit/loss scenarios"""
-    permission_classes = [IsAdminOrReadOnly]
+class UserTradeOutcomeListView(generics.ListAPIView):
+    """
+    List all user trade outcomes (Admin only)
+    """
+    queryset = UserTradeOutcome.objects.all()
+    serializer_class = UserTradeOutcomeSerializer
+    permission_classes = [permissions.IsAdminUser]
     
     def get_queryset(self):
-        return ProfitLossScenario.objects.all()
+        """Filter by user if specified"""
+        queryset = super().get_queryset()
+        user_id = self.request.query_params.get('user_id')
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+        
+        is_executed = self.request.query_params.get('is_executed')
+        if is_executed is not None:
+            queryset = queryset.filter(is_executed=is_executed.lower() == 'true')
+        
+        return queryset.select_related('user', 'trade', 'trade__cryptocurrency')
+
+
+class MarketDataHistoryView(generics.ListAPIView):
+    """
+    Get market data history for a cryptocurrency
+    """
+    queryset = MarketDataSimulation.objects.all()
+    serializer_class = MarketDataSimulationSerializer
+    permission_classes = [permissions.IsAuthenticated]
     
-    def get_serializer_class(self):
-        if self.request.method == 'POST':
-            return CreateProfitLossScenarioSerializer
-        return ProfitLossScenarioSerializer
-    
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
-
-
-class ProfitLossScenarioDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """Manage individual profit/loss scenarios"""
-    permission_classes = [IsAdminOrReadOnly]
-    queryset = ProfitLossScenario.objects.all()
-    serializer_class = ProfitLossScenarioSerializer
-
-
-class ScenarioExecutionListView(generics.ListAPIView):
-    """List scenario executions"""
-    permission_classes = [IsAdminOrReadOnly]
-    queryset = ScenarioExecution.objects.all()
-    serializer_class = ScenarioExecutionSerializer
+    def get_queryset(self):
+        """Filter by symbol"""
+        queryset = super().get_queryset()
+        symbol = self.request.query_params.get('symbol', 'BTC')
+        limit = int(self.request.query_params.get('limit', 100))
+        
+        return queryset.filter(cryptocurrency_symbol=symbol)[:limit]
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminOrReadOnly])
-def execute_scenario(request, scenario_id):
-    """Execute a profit/loss scenario"""
+@permission_classes([permissions.IsAdminUser])
+def update_win_loss_rates(request):
+    """
+    Quick update for win/loss rates
+    
+    POST data:
+    {
+        "win_rate": 20,
+        "min_profit": 5,
+        "max_profit": 15,
+        "min_loss": 10,
+        "max_loss": 30
+    }
+    """
     try:
-        scenario = ProfitLossScenario.objects.get(id=scenario_id)
+        settings = TradingSettings.get_active_settings()
         
-        if not scenario.is_active and not request.data.get('force_execute', False):
-            return Response(
-                {'error': 'Scenario is not active. Use force_execute=true to override.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        win_rate = request.data.get('win_rate')
+        if win_rate is not None:
+            settings.win_rate_percentage = win_rate
+            settings.loss_rate_percentage = 100 - win_rate
         
-        serializer = ExecuteScenarioSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        min_profit = request.data.get('min_profit')
+        if min_profit is not None:
+            settings.min_profit_percentage = min_profit
         
-        dry_run = serializer.validated_data.get('dry_run', False)
-        notes = serializer.validated_data.get('notes', '')
+        max_profit = request.data.get('max_profit')
+        if max_profit is not None:
+            settings.max_profit_percentage = max_profit
         
-        # Get affected investments
-        affected_investments = []
-        affected_users = set()
+        min_loss = request.data.get('min_loss')
+        if min_loss is not None:
+            settings.min_loss_percentage = min_loss
         
-        if scenario.apply_to_all_investments:
-            investments = Investment.objects.filter(status='active')
-        elif scenario.target_crypto_index:
-            investments = Investment.objects.filter(
-                crypto_index=scenario.target_crypto_index,
-                status='active'
-            )
-        elif scenario.target_cryptocurrency:
-            investments = Investment.objects.filter(
-                cryptocurrency=scenario.target_cryptocurrency,
-                status='active'
-            )
-        else:
-            investments = Investment.objects.none()
+        max_loss = request.data.get('max_loss')
+        if max_loss is not None:
+            settings.max_loss_percentage = max_loss
         
-        affected_investments = list(investments)
-        affected_users = set(inv.user for inv in affected_investments)
+        settings.updated_by = request.user
+        settings.save()
         
-        if dry_run:
-            return Response({
-                'message': 'Dry run completed',
-                'scenario': ProfitLossScenarioSerializer(scenario).data,
-                'affected_investments': len(affected_investments),
-                'affected_users': len(affected_users),
-                'total_value_change': sum(inv.current_value_usd for inv in affected_investments) * (scenario.percentage_change / 100)
-            }, status=status.HTTP_200_OK)
+        serializer = TradingSettingsSerializer(settings)
+        return Response({
+            'success': True,
+            'message': 'Trading settings updated successfully',
+            'settings': serializer.data
+        })
         
-        # Execute the scenario
-        total_value_change = Decimal('0')
-        successful_updates = 0
-        
-        for investment in affected_investments:
-            try:
-                # Calculate new values
-                change_factor = Decimal('1') + (scenario.percentage_change / Decimal('100'))
-                
-                new_value_btc = investment.current_value_btc * change_factor
-                new_value_usd = investment.current_value_usd * change_factor
-                
-                # Update investment
-                investment.current_value_btc = new_value_btc
-                investment.current_value_usd = new_value_usd
-                investment.unrealized_pnl_btc = new_value_btc - investment.total_invested_btc
-                investment.unrealized_pnl_usd = new_value_usd - investment.total_invested_usd
-                
-                if investment.total_invested_btc > 0:
-                    investment.unrealized_pnl_percent = (investment.unrealized_pnl_btc / investment.total_invested_btc) * 100
-                
-                investment.save()
-                successful_updates += 1
-                total_value_change += investment.current_value_usd - (investment.current_value_usd / change_factor)
-                
-            except Exception as e:
-                continue
-        
-        # Create execution record
-        execution = ScenarioExecution.objects.create(
-            scenario=scenario,
-            executed_by=request.user,
-            affected_investments=successful_updates,
-            affected_users=len(affected_users),
-            total_value_change=total_value_change,
-            status='success' if successful_updates > 0 else 'failed',
-            error_message=notes
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAdminUser])
+def toggle_biased_trading(request):
+    """
+    Enable or disable biased trading
+    
+    POST data:
+    {
+        "is_active": true
+    }
+    """
+    try:
+        settings = TradingSettings.get_active_settings()
+        is_active = request.data.get('is_active', True)
         
-        # Update scenario
-        scenario.times_executed += 1
-        scenario.last_executed = timezone.now()
-        
-        if scenario.repeat_execution:
-            scenario.next_execution = timezone.now() + timedelta(hours=scenario.repeat_interval_hours)
-        
-        scenario.save()
+        settings.is_active = is_active
+        settings.updated_by = request.user
+        settings.save()
         
         return Response({
-            'message': 'Scenario executed successfully',
-            'execution_id': execution.id,
-            'affected_investments': successful_updates,
-            'affected_users': len(affected_users),
-            'total_value_change': total_value_change
-        }, status=status.HTTP_200_OK)
+            'success': True,
+            'message': f'Biased trading {"enabled" if is_active else "disabled"}',
+            'is_active': is_active
+        })
         
-    except ProfitLossScenario.DoesNotExist:
-        return Response(
-            {'error': 'Scenario not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
     except Exception as e:
         return Response(
             {'error': str(e)},
@@ -226,110 +156,134 @@ def execute_scenario(request, scenario_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminOrReadOnly])
-def activate_scenario(request, scenario_id):
-    """Activate a profit/loss scenario"""
-    try:
-        scenario = ProfitLossScenario.objects.get(id=scenario_id)
-        scenario.is_active = True
-        scenario.save()
-        
-        serializer = ProfitLossScenarioSerializer(scenario)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-        
-    except ProfitLossScenario.DoesNotExist:
-        return Response(
-            {'error': 'Scenario not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
-    except Exception as e:
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-
-@api_view(['POST'])
-@permission_classes([IsAdminOrReadOnly])
-def deactivate_scenario(request, scenario_id):
-    """Deactivate a profit/loss scenario"""
-    try:
-        scenario = ProfitLossScenario.objects.get(id=scenario_id)
-        scenario.is_active = False
-        scenario.save()
-        
-        serializer = ProfitLossScenarioSerializer(scenario)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-        
-    except ProfitLossScenario.DoesNotExist:
-        return Response(
-            {'error': 'Scenario not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
-    except Exception as e:
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-
-class AdminDashboardView(APIView):
-    """Admin dashboard with system statistics"""
-    permission_classes = [IsAdminOrReadOnly]
+@permission_classes([permissions.IsAdminUser])
+def update_activity_based_settings(request):
+    """
+    Update activity-based trading settings
     
-    def get(self, request):
-        """Get admin dashboard data"""
-        try:
-            # Get trading settings
-            settings = TradingSettings.objects.first()
-            if not settings:
-                settings = TradingSettings.objects.create()
-            
-            # Get scenario statistics
-            total_scenarios = ProfitLossScenario.objects.count()
-            active_scenarios = ProfitLossScenario.objects.filter(is_active=True).count()
-            recent_executions = ScenarioExecution.objects.filter(
-                executed_at__gte=timezone.now() - timedelta(days=7)
-            ).count()
-            
-            # Get investment statistics
-            total_investments = Investment.objects.count()
-            active_investments = Investment.objects.filter(status='active').count()
-            total_invested_value = Investment.objects.aggregate(
-                total=Sum('total_invested_usd')
-            )['total'] or Decimal('0')
-            total_current_value = Investment.objects.aggregate(
-                total=Sum('current_value_usd')
-            )['total'] or Decimal('0')
-            
-            # Get user statistics
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
-            total_users = User.objects.count()
-            active_users = User.objects.filter(is_active=True).count()
-            
-            return Response({
-                'trading_settings': TradingSettingsSerializer(settings).data,
-                'scenario_stats': {
-                    'total_scenarios': total_scenarios,
-                    'active_scenarios': active_scenarios,
-                    'recent_executions': recent_executions
-                },
-                'investment_stats': {
-                    'total_investments': total_investments,
-                    'active_investments': active_investments,
-                    'total_invested_value': total_invested_value,
-                    'total_current_value': total_current_value,
-                    'total_pnl': total_current_value - total_invested_value
-                },
-                'user_stats': {
-                    'total_users': total_users,
-                    'active_users': active_users
-                }
-            }, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+    POST data:
+    {
+        "idle_profit_percentage": 5.0,
+        "idle_duration_seconds": 1800,
+        "active_loss_percentage": 80.0,
+        "active_duration_seconds": 300
+    }
+    """
+    try:
+        settings = TradingSettings.get_active_settings()
+        
+        # Update idle mode settings
+        if 'idle_profit_percentage' in request.data:
+            settings.idle_profit_percentage = request.data['idle_profit_percentage']
+        if 'idle_duration_seconds' in request.data:
+            settings.idle_duration_seconds = request.data['idle_duration_seconds']
+        
+        # Update active mode settings
+        if 'active_loss_percentage' in request.data:
+            settings.active_loss_percentage = request.data['active_loss_percentage']
+        if 'active_duration_seconds' in request.data:
+            settings.active_duration_seconds = request.data['active_duration_seconds']
+        
+        settings.updated_by = request.user
+        settings.save()
+        
+        serializer = TradingSettingsSerializer(settings)
+        return Response({
+            'success': True,
+            'message': 'Activity-based settings updated successfully',
+            'settings': serializer.data
+        })
+        
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAdminUser])
+def set_default_settings(request):
+    """
+    Reset to default activity-based settings
+    
+    Defaults:
+    - Idle: 5% profit every 30 minutes
+    - Active: 80% loss every 5 minutes
+    """
+    try:
+        settings = TradingSettings.set_to_default()
+        settings.updated_by = request.user
+        settings.save()
+        
+        serializer = TradingSettingsSerializer(settings)
+        return Response({
+            'success': True,
+            'message': 'Settings reset to default values',
+            'settings': serializer.data
+        })
+        
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def get_trading_mode_status(request):
+    """
+    Get current trading mode (idle or active)
+    """
+    try:
+        settings = TradingSettings.get_active_settings()
+        is_active = TradingSettings.is_user_actively_trading()
+        
+        return Response({
+            'is_user_trading': is_active,
+            'current_mode': 'active' if is_active else 'idle',
+            'current_outcome': 'loss' if is_active else 'win',
+            'current_percentage': float(settings.active_loss_percentage if is_active else settings.idle_profit_percentage),
+            'current_duration': settings.active_duration_seconds if is_active else settings.idle_duration_seconds,
+            'settings': TradingSettingsSerializer(settings).data
+        })
+        
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAdminUser])
+def get_active_positions_summary(request):
+    """
+    Get summary of all active positions and their outcomes
+    """
+    try:
+        # Get all active (non-executed) outcomes
+        active_outcomes = UserTradeOutcome.objects.filter(
+            is_executed=False
+        ).select_related('user', 'trade', 'trade__cryptocurrency')
+        
+        # Count by outcome type
+        win_count = active_outcomes.filter(outcome='win').count()
+        loss_count = active_outcomes.filter(outcome='loss').count()
+        
+        # Serialize outcomes
+        serializer = UserTradeOutcomeSerializer(active_outcomes, many=True)
+        
+        return Response({
+            'total_active_positions': active_outcomes.count(),
+            'expected_wins': win_count,
+            'expected_losses': loss_count,
+            'positions': serializer.data
+        })
+        
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

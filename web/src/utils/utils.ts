@@ -1,5 +1,5 @@
 const getImagePrefix = () => {
-  return "";
+  return "/";
 };
 
 export { getImagePrefix };

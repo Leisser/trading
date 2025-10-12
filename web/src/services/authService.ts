@@ -6,8 +6,7 @@ import {
   User,
   UserCredential 
 } from 'firebase/auth';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, googleProvider, githubProvider, storage } from '@/config/firebase';
+import { auth, googleProvider, githubProvider } from '@/config/firebase';
 
 export interface UserRegistrationData {
   name: string;
@@ -21,6 +20,7 @@ export interface UserRegistrationData {
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
+  user?: any;
 }
 
 export interface BackendUser {
@@ -32,7 +32,7 @@ export interface BackendUser {
 }
 
 class AuthService {
-  private baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  private baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
   // Firebase Authentication Methods
   async registerWithEmail(data: UserRegistrationData): Promise<UserCredential> {
@@ -89,67 +89,66 @@ class AuthService {
   }
 
   // File Upload Methods
-  async uploadIdImage(file: File, userId: string, type: 'front' | 'back' | 'passport'): Promise<string> {
+  async uploadIdImage(file: File, type: 'front' | 'back' | 'passport', firebaseToken: string): Promise<number> {
     try {
-      const fileName = `${type}_${Date.now()}_${file.name}`;
-      const storageRef = ref(storage, `id-verification/${userId}/${fileName}`);
-      
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      
-      return downloadURL;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('document_type', type);
+
+      const response = await fetch(`${this.baseURL}/upload/kyc/upload/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${firebaseToken}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to upload ID image');
+      }
+
+      const result = await response.json();
+      return result.upload.id; // Return the KYC upload ID
     } catch (error) {
       throw new Error('Failed to upload ID image');
     }
   }
 
-  // Backend API Methods
-  async registerUser(userData: UserRegistrationData, firebaseUser: User): Promise<BackendUser> {
+  // Sync Firebase user with backend
+  // This is the ONLY method needed - it handles both new and existing users
+  async syncFirebaseUser(firebaseUser: User): Promise<AuthTokens> {
     try {
-      let idImages: { front?: string; back?: string; passport?: string } = {};
-
-      // Upload ID images if provided
-      if (userData.idFrontImage) {
-        idImages.front = await this.uploadIdImage(userData.idFrontImage, firebaseUser.uid, 'front');
-      }
-      if (userData.idBackImage) {
-        idImages.back = await this.uploadIdImage(userData.idBackImage, firebaseUser.uid, 'back');
-      }
-      if (userData.passportImage) {
-        idImages.passport = await this.uploadIdImage(userData.passportImage, firebaseUser.uid, 'passport');
-      }
-
+      console.log('Syncing Firebase user:', firebaseUser.email); // Debug log
+      
       // Get Firebase ID token
       const idToken = await firebaseUser.getIdToken();
+      console.log('Got Firebase ID token'); // Debug log
 
-      const response = await fetch(`${this.baseURL}/api/register/firebase/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
-        },
-        body: JSON.stringify({
-          name: userData.name,
-          email: userData.email,
-          firebase_uid: firebaseUser.uid,
-          id_images: idImages
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Registration failed');
-      }
-
-      return await response.json();
+      // Send token to backend - backend will:
+      // 1. Verify token with Firebase Admin SDK
+      // 2. Check if user exists by email
+      // 3. If exists: return tokens and user details
+      // 4. If not: create user and return tokens and user details
+      const tokens = await this.convertToken(idToken);
+      
+      console.log('Received tokens from backend:', tokens); // Debug log
+      
+      // Store tokens in localStorage
+      this.setTokens(tokens);
+      
+      console.log('Tokens should be stored now'); // Debug log
+      
+      return tokens;
     } catch (error: any) {
-      throw new Error(error.message || 'Failed to register user');
+      console.error('syncFirebaseUser error:', error); // Debug log
+      throw new Error(error.message || 'Authentication failed');
     }
   }
 
   async convertToken(firebaseToken: string): Promise<AuthTokens> {
     try {
-      const response = await fetch(`${this.baseURL}/api/auth/convert-token/`, {
+      const response = await fetch(`${this.baseURL}/convert-token/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -161,18 +160,32 @@ class AuthService {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Token conversion failed');
+        throw new Error(errorData.message || 'Authentication failed');
       }
 
-      return await response.json();
+      const data = await response.json();
+      
+      console.log('Backend response:', data); // Debug log
+      
+      // Map response to AuthTokens interface
+      const tokens = {
+        accessToken: data.access_token || '',
+        refreshToken: data.refresh_token || '',
+        user: data.user || null
+      };
+      
+      console.log('Mapped tokens:', tokens); // Debug log
+      
+      return tokens;
     } catch (error: any) {
+      console.error('Convert token error:', error); // Debug log
       throw new Error(error.message || 'Failed to convert token');
     }
   }
 
   async refreshToken(refreshToken: string): Promise<AuthTokens> {
     try {
-      const response = await fetch(`${this.baseURL}/api/auth/refresh-token/`, {
+      const response = await fetch(`${this.baseURL}/refresh-token/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -216,8 +229,20 @@ class AuthService {
 
   // Token Management
   setTokens(tokens: AuthTokens): void {
+    console.log('Setting tokens:', tokens); // Debug log
+    if (!tokens.accessToken || !tokens.refreshToken) {
+      console.error('Invalid tokens provided to setTokens:', tokens);
+      return;
+    }
     localStorage.setItem('access_token', tokens.accessToken);
     localStorage.setItem('refresh_token', tokens.refreshToken);
+    console.log('Tokens stored successfully'); // Debug log
+    console.log('Access token:', localStorage.getItem('access_token')); // Verify storage
+    
+    // Dispatch custom event to notify components that auth state changed
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('authChanged'));
+    }
   }
 
   getAccessToken(): string | null {
@@ -231,6 +256,11 @@ class AuthService {
   clearTokens(): void {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    
+    // Dispatch custom event to notify components that auth state changed
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('authChanged'));
+    }
   }
 
   // API Request Helper

@@ -8,7 +8,11 @@ import Loader from "@/components/Common/Loader";
 import { Icon } from "@iconify/react";
 import { authService } from "@/services/authService";
 
-const Signin = () => {
+interface SigninProps {
+  onSuccess?: () => void;
+}
+
+const Signin = ({ onSuccess }: SigninProps = {}) => {
   const router = useRouter();
 
   const [loginData, setLoginData] = useState({
@@ -32,21 +36,21 @@ const Signin = () => {
     setLoading(true);
 
     try {
-      // Step 1: Sign in with Firebase
+      // Step 1: Sign in with Firebase (independent)
       const userCredential = await authService.signInWithEmail(loginData.email, loginData.password);
       
-      // Step 2: Get Firebase ID token
-      const idToken = await userCredential.user.getIdToken();
+      // Step 2: Sync with backend (creates user if doesn't exist, returns tokens)
+      await authService.syncFirebaseUser(userCredential.user);
       
-      // Step 3: Convert Firebase token to backend tokens
-      const tokens = await authService.convertToken(idToken);
-      
-      // Step 4: Store tokens
-      authService.setTokens(tokens);
-      
-      // Step 5: Success
+      // Step 3: Success
       toast.success("Login successful");
-      router.push("/dashboard");
+      
+      // Close the modal if callback provided
+      if (onSuccess) {
+        onSuccess();
+      }
+      
+      router.push("/#portfolio");
       
     } catch (error: any) {
       setError(error.message || "Login failed. Please try again.");
@@ -62,12 +66,10 @@ const Signin = () => {
 
     try {
       const userCredential = await authService.signInWithGoogle();
-      const idToken = await userCredential.user.getIdToken();
-      const tokens = await authService.convertToken(idToken);
-      authService.setTokens(tokens);
+      await authService.syncFirebaseUser(userCredential.user);
       
       toast.success("Login successful");
-      router.push("/dashboard");
+      router.push("/#portfolio");
       
     } catch (error: any) {
       setError(error.message || "Google sign-in failed");
@@ -88,7 +90,7 @@ const Signin = () => {
       authService.setTokens(tokens);
       
       toast.success("Login successful");
-      router.push("/dashboard");
+      router.push("/#portfolio");
       
     } catch (error: any) {
       setError(error.message || "GitHub sign-in failed");

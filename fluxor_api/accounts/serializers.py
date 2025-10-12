@@ -110,47 +110,80 @@ class TokenConversionSerializer(serializers.Serializer):
     def validate_token(self, value):
         """Validate Firebase token and get user info"""
         try:
-            # Initialize Firebase Admin SDK if not already done
-            if not firebase_admin._apps:
-                # Use service account key from environment or default
-                cred = credentials.Certificate({
-                    "type": "service_account",
-                    "project_id": os.getenv('FIREBASE_PROJECT_ID'),
-                    "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
-                    "private_key": os.getenv('FIREBASE_PRIVATE_KEY', '').replace('\\n', '\n'),
-                    "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
-                    "client_id": os.getenv('FIREBASE_CLIENT_ID'),
-                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                    "token_uri": "https://oauth2.googleapis.com/token",
-                })
-                firebase_admin.initialize_app(cred)
+            # Use the firebase_auth_service which is already properly initialized
+            from accounts.firebase_auth import firebase_auth_service
             
-            # Verify the token
-            decoded_token = firebase_auth.verify_id_token(value)
-            return decoded_token
+            # Verify the token using our service
+            firebase_data = firebase_auth_service.verify_firebase_token(value)
             
+            if not firebase_data:
+                raise serializers.ValidationError("Your session has expired. Please sign in again.")
+                
+            return firebase_data
+            
+        except serializers.ValidationError:
+            raise
         except Exception as e:
-            raise serializers.ValidationError(f"Invalid Firebase token: {str(e)}")
+            # Log the technical error
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Firebase token validation error: {str(e)}")
+            
+            # Return user-friendly message
+            error_msg = str(e).lower()
+            if 'expired' in error_msg:
+                raise serializers.ValidationError("Your session has expired. Please sign in again.")
+            elif 'revoked' in error_msg:
+                raise serializers.ValidationError("Your session has been revoked. Please sign in again.")
+            else:
+                raise serializers.ValidationError("Authentication failed. Please sign in again.")
     
     def create(self, validated_data):
-        """Create or get user session and return tokens"""
-        decoded_token = validated_data['token']
-        firebase_uid = decoded_token['uid']
+        """Get or create user and return session tokens"""
+        firebase_data = validated_data['token']
+        email = firebase_data.get('email')
+        firebase_uid = firebase_data.get('uid')
         
+        if not email or not firebase_uid:
+            raise serializers.ValidationError("Invalid Firebase data: missing email or uid")
+        
+        # Check if user exists by email (primary) or Firebase UID (secondary)
+        user = None
+        
+        # First, try to find by email
         try:
-            # Get or create user
-            user = User.objects.get(firebase_uid=firebase_uid)
+            user = User.objects.get(email=email)
+            # Update Firebase UID if not set or different
+            if user.firebase_uid != firebase_uid:
+                user.firebase_uid = firebase_uid
+                user.save(update_fields=['firebase_uid'])
         except User.DoesNotExist:
-            raise serializers.ValidationError("User not found. Please register first.")
+            # Try by Firebase UID
+            try:
+                user = User.objects.get(firebase_uid=firebase_uid)
+            except User.DoesNotExist:
+                # User doesn't exist - create new user
+                from accounts.firebase_auth import firebase_auth_service
+                user = firebase_auth_service.get_or_create_user_from_firebase(firebase_data)
+                
+                if not user:
+                    raise serializers.ValidationError("Failed to create account. Please try again.")
         
-        # Create session
+        # Create JWT tokens
+        from rest_framework_simplejwt.tokens import RefreshToken
         from django.utils import timezone
         from datetime import timedelta
         
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+        
+        # Create session for tracking
         session = UserSession.objects.create(
             user=user,
-            access_token=self.generate_access_token(user),
-            refresh_token=self.generate_refresh_token(user),
+            access_token=access_token,
+            refresh_token=refresh_token,
             firebase_token=validated_data['token'],
             expires_at=timezone.now() + timedelta(hours=24),
             ip_address=self.context.get('request').META.get('REMOTE_ADDR'),
@@ -162,24 +195,10 @@ class TokenConversionSerializer(serializers.Serializer):
         user.save()
         
         return {
-            'access_token': session.access_token,
-            'refresh_token': session.refresh_token,
+            'access_token': access_token,
+            'refresh_token': refresh_token,
             'user': UserSerializer(user).data
         }
-    
-    def generate_access_token(self, user):
-        """Generate access token (simplified - use JWT in production)"""
-        import hashlib
-        import time
-        token_data = f"{user.id}:{user.email}:{time.time()}"
-        return hashlib.sha256(token_data.encode()).hexdigest()
-    
-    def generate_refresh_token(self, user):
-        """Generate refresh token (simplified - use JWT in production)"""
-        import hashlib
-        import time
-        token_data = f"refresh:{user.id}:{user.email}:{time.time()}"
-        return hashlib.sha256(token_data.encode()).hexdigest()
 
 
 class RefreshTokenSerializer(serializers.Serializer):
@@ -206,24 +225,23 @@ class RefreshTokenSerializer(serializers.Serializer):
     
     def create(self, validated_data):
         """Generate new access token"""
+        from rest_framework_simplejwt.tokens import RefreshToken
+        
         session = validated_data['refresh_token']
         
-        # Generate new access token
-        new_access_token = self.generate_access_token(session.user)
+        # Generate new JWT tokens
+        refresh = RefreshToken.for_user(session.user)
+        new_access_token = str(refresh.access_token)
+        new_refresh_token = str(refresh)
+        
         session.access_token = new_access_token
+        session.refresh_token = new_refresh_token
         session.save()
         
         return {
             'access_token': new_access_token,
-            'refresh_token': session.refresh_token
+            'refresh_token': new_refresh_token
         }
-    
-    def generate_access_token(self, user):
-        """Generate access token (simplified - use JWT in production)"""
-        import hashlib
-        import time
-        token_data = f"{user.id}:{user.email}:{time.time()}"
-        return hashlib.sha256(token_data.encode()).hexdigest()
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -240,7 +258,7 @@ class UserSerializer(serializers.ModelSerializer):
             'phone_number', 'date_of_birth', 'country', 'address', 'city', 'postal_code',
             'is_verified', 'verification_status', 'trading_level', 'account_status',
             'is_fully_verified', 'can_trade', 'two_factor_enabled',
-            'email_notifications', 'sms_notifications',
+            'email_notifications', 'sms_notifications', 'is_superuser', 'is_staff',
             'created_at', 'last_login_at', 'verification_submitted_at',
             'verification_approved_at'
         ]

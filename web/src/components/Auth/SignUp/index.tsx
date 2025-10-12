@@ -8,7 +8,11 @@ import Loader from "@/components/Common/Loader";
 import { Icon } from "@iconify/react";
 import { authService, UserRegistrationData } from "@/services/authService";
 
-const SignUp = () => {
+interface SignUpProps {
+  onSuccess?: () => void;
+}
+
+const SignUp = ({ onSuccess }: SignUpProps = {}) => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -94,23 +98,21 @@ const SignUp = () => {
         passportImage: idImages.passport || undefined,
       });
 
-      // Step 2: Register user in backend
-      await authService.registerUser({
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        idFrontImage: idImages.idFront || undefined,
-        idBackImage: idImages.idBack || undefined,
-        passportImage: idImages.passport || undefined,
-      }, userCredential.user);
+      // Step 2: Sync with backend (auto-creates user if doesn't exist)
+      await authService.syncFirebaseUser(userCredential.user);
 
-      // Step 3: Sign out user and show success message
-      await authService.signOut();
+      // Step 3: Success - user is now registered and logged in!
+      setSuccess("Registration successful! Redirecting...");
       
-      setSuccess("Registration successful! Please sign in to continue.");
-      setFormData({ name: "", email: "", password: "", confirmPassword: "" });
-      setIdImages({ idFront: null, idBack: null, passport: null });
-      setCurrentStep(1);
+      // Close the modal if callback provided
+      if (onSuccess) {
+        onSuccess();
+      }
+      
+      // Redirect to portfolio after short delay
+      setTimeout(() => {
+        window.location.href = '/#portfolio';
+      }, 1500);
 
     } catch (error: any) {
       setError(error.message || "Registration failed. Please try again.");
@@ -126,15 +128,20 @@ const SignUp = () => {
     try {
       const userCredential = await authService.signInWithGoogle();
       
-      // Register user in backend (Google users still need ID verification)
-      await authService.registerUser({
-        name: userCredential.user.displayName || "",
-        email: userCredential.user.email || "",
-        password: "", // Not needed for OAuth
-      }, userCredential.user);
+      // Sync with backend (auto-creates user if doesn't exist)
+      await authService.syncFirebaseUser(userCredential.user);
 
-      await authService.signOut();
-      setSuccess("Registration successful! Please sign in to continue.");
+      // Success - user is now registered and logged in!
+      setSuccess("Registration successful! Redirecting...");
+      
+      // Close the modal if callback provided
+      if (onSuccess) {
+        onSuccess();
+      }
+      
+      setTimeout(() => {
+        window.location.href = '/#portfolio';
+      }, 1500);
 
     } catch (error: any) {
       setError(error.message || "Google signup failed. Please try again.");
@@ -150,15 +157,20 @@ const SignUp = () => {
     try {
       const userCredential = await authService.signInWithGithub();
       
-      // Register user in backend (GitHub users still need ID verification)
-      await authService.registerUser({
-        name: userCredential.user.displayName || "",
-        email: userCredential.user.email || "",
-        password: "", // Not needed for OAuth
-      }, userCredential.user);
+      // Sync with backend (auto-creates user if doesn't exist)
+      await authService.syncFirebaseUser(userCredential.user);
 
-      await authService.signOut();
-      setSuccess("Registration successful! Please sign in to continue.");
+      // Success - user is now registered and logged in!
+      setSuccess("Registration successful! Redirecting...");
+      
+      // Close the modal if callback provided
+      if (onSuccess) {
+        onSuccess();
+      }
+      
+      setTimeout(() => {
+        window.location.href = '/#portfolio';
+      }, 1500);
 
     } catch (error: any) {
       setError(error.message || "GitHub signup failed. Please try again.");

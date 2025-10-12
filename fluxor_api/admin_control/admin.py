@@ -1,86 +1,72 @@
 from django.contrib import admin
-from .models import TradingSettings, ProfitLossScenario, ScenarioExecution
+from .models import TradingSettings, UserTradeOutcome, MarketDataSimulation
 
 
 @admin.register(TradingSettings)
 class TradingSettingsAdmin(admin.ModelAdmin):
-    list_display = ['trading_enabled', 'maintenance_mode', 'profit_loss_mode', 'default_profit_rate', 'default_loss_rate', 'updated_at']
-    list_filter = ['trading_enabled', 'maintenance_mode', 'profit_loss_mode']
+    list_display = ['is_active', 'active_win_rate_percentage', 'active_profit_percentage', 'active_loss_percentage', 'updated_at']
+    list_filter = ['is_active']
     readonly_fields = ['created_at', 'updated_at']
     
     fieldsets = (
-        ('Global Settings', {
-            'fields': ('trading_enabled', 'maintenance_mode', 'profit_loss_mode')
+        ('Status', {
+            'fields': ('is_active',)
         }),
-        ('Profit/Loss Rates', {
-            'fields': ('default_profit_rate', 'default_loss_rate', 'max_profit_rate', 'max_loss_rate')
+        ('🟢 IDLE MODE (No Active Trading)', {
+            'fields': ('idle_profit_percentage', 'idle_duration_seconds'),
+            'description': 'Settings when no users have traded in the last 10 minutes'
         }),
-        ('Index Settings', {
-            'fields': ('index_appreciation_rate', 'index_depreciation_rate', 'index_volatility_factor')
+        ('🔴 ACTIVE MODE (Users Trading)', {
+            'fields': (
+                'active_win_rate_percentage',
+                'active_profit_percentage', 
+                'active_loss_percentage',
+                'active_duration_seconds'
+            ),
+            'description': 'Settings when users are actively trading'
         }),
-        ('Update Frequencies', {
-            'fields': ('price_update_frequency', 'investment_update_frequency', 'portfolio_calculation_frequency')
+        ('Legacy Win/Loss Configuration', {
+            'fields': ('win_rate_percentage', 'loss_rate_percentage'),
+            'classes': ('collapse',)
         }),
-        ('Trading Limits', {
-            'fields': ('min_trade_amount', 'max_trade_amount', 'min_investment_amount')
+        ('Profit Magnitude', {
+            'fields': ('min_profit_percentage', 'max_profit_percentage'),
+            'classes': ('collapse',)
         }),
-        ('Fees', {
-            'fields': ('trading_fee_percentage', 'withdrawal_fee_percentage', 'management_fee_percentage')
+        ('Loss Magnitude', {
+            'fields': ('min_loss_percentage', 'max_loss_percentage'),
+            'classes': ('collapse',)
         }),
-        ('Timestamps', {
+        ('Time Periods', {
+            'fields': ('min_trade_duration_seconds', 'max_trade_duration_seconds'),
+            'classes': ('collapse',)
+        }),
+        ('Market Simulation', {
+            'fields': ('price_volatility_percentage', 'update_interval_seconds'),
+            'classes': ('collapse',)
+        }),
+        ('🌐 Real Price Integration', {
+            'fields': ('use_real_prices',),
+            'description': 'Enable fetching real cryptocurrency prices from exchanges (CoinGecko/CCXT)'
+        }),
+        ('Metadata', {
             'fields': ('created_at', 'updated_at', 'updated_by'),
             'classes': ('collapse',)
         })
     )
 
 
-@admin.register(ProfitLossScenario)
-class ProfitLossScenarioAdmin(admin.ModelAdmin):
-    list_display = ['name', 'scenario_type', 'percentage_change', 'time_duration', 'time_unit', 'is_active', 'times_executed', 'created_at']
-    list_filter = ['scenario_type', 'is_active', 'apply_to_all_investments', 'apply_to_all_users', 'repeat_execution']
-    search_fields = ['name', 'description']
-    readonly_fields = ['times_executed', 'last_executed', 'created_at', 'updated_at']
-    
-    fieldsets = (
-        ('Basic Information', {
-            'fields': ('name', 'description', 'scenario_type')
-        }),
-        ('Parameters', {
-            'fields': ('percentage_change', 'time_duration', 'time_unit')
-        }),
-        ('Target Settings', {
-            'fields': ('target_crypto_index', 'target_cryptocurrency', 'apply_to_all_investments', 'apply_to_all_users')
-        }),
-        ('Execution Settings', {
-            'fields': ('is_active', 'execute_immediately', 'scheduled_execution', 'repeat_execution', 'repeat_interval_hours')
-        }),
-        ('Tracking', {
-            'fields': ('times_executed', 'last_executed', 'next_execution'),
-            'classes': ('collapse',)
-        }),
-        ('Metadata', {
-            'fields': ('created_at', 'created_by', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
+@admin.register(UserTradeOutcome)
+class UserTradeOutcomeAdmin(admin.ModelAdmin):
+    list_display = ['user', 'outcome', 'outcome_percentage', 'duration_seconds', 'is_executed', 'created_at']
+    list_filter = ['outcome', 'is_executed']
+    search_fields = ['user__email']
+    readonly_fields = ['created_at', 'executed_at']
 
 
-@admin.register(ScenarioExecution)
-class ScenarioExecutionAdmin(admin.ModelAdmin):
-    list_display = ['scenario', 'executed_at', 'executed_by', 'affected_investments', 'affected_users', 'status']
-    list_filter = ['status', 'executed_at', 'scenario__scenario_type']
-    search_fields = ['scenario__name', 'executed_by__email']
-    readonly_fields = ['executed_at']
-    
-    fieldsets = (
-        ('Execution Details', {
-            'fields': ('scenario', 'executed_at', 'executed_by')
-        }),
-        ('Results', {
-            'fields': ('affected_investments', 'affected_users', 'total_value_change', 'status')
-        }),
-        ('Error Information', {
-            'fields': ('error_message',),
-            'classes': ('collapse',)
-        })
-    )
+@admin.register(MarketDataSimulation)
+class MarketDataSimulationAdmin(admin.ModelAdmin):
+    list_display = ['cryptocurrency_symbol', 'close_price', 'volume', 'timestamp']
+    list_filter = ['cryptocurrency_symbol']
+    readonly_fields = ['timestamp']
+    ordering = ['-timestamp']

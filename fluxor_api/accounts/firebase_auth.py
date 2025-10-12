@@ -3,12 +3,14 @@ Firebase Authentication Service for Django
 Handles Firebase token verification and user management
 """
 
-import requests
+import firebase_admin
+from firebase_admin import credentials, auth
 import logging
 from typing import Optional, Dict, Any
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from accounts.models import User
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -16,17 +18,33 @@ User = get_user_model()
 
 class FirebaseAuthService:
     """
-    Service for handling Firebase authentication
+    Service for handling Firebase authentication using Firebase Admin SDK
     """
     
     def __init__(self):
+        # Initialize Firebase Admin SDK if not already initialized
+        if not firebase_admin._apps:
+            try:
+                # Get the path to the service account JSON file
+                service_account_path = os.path.join(
+                    settings.BASE_DIR,
+                    'firebase_service_account.json'
+                )
+                
+                if os.path.exists(service_account_path):
+                    cred = credentials.Certificate(service_account_path)
+                    firebase_admin.initialize_app(cred)
+                    logger.info("Firebase Admin SDK initialized successfully")
+                else:
+                    logger.error(f"Firebase service account file not found at {service_account_path}")
+            except Exception as e:
+                logger.error(f"Failed to initialize Firebase Admin SDK: {str(e)}")
+        
         self.project_id = "fluxor-434ed"
-        self.verify_url = f"https://identitytoolkit.googleapis.com/v1/accounts:lookup"
-        self.api_key = "AIzaSyC2EjPY7nG7uFyu6l2ymNlTGxTecOD69gU"
     
     def verify_firebase_token(self, id_token: str) -> Optional[Dict[str, Any]]:
         """
-        Verify Firebase ID token and return user information
+        Verify Firebase ID token and return user information using Firebase Admin SDK
         
         Args:
             id_token: Firebase ID token from client
@@ -35,40 +53,38 @@ class FirebaseAuthService:
             Dict containing user information if valid, None if invalid
         """
         try:
-            # Verify token with Firebase
-            response = requests.post(
-                self.verify_url,
-                params={'key': self.api_key},
-                json={'idToken': id_token},
-                timeout=10
-            )
+            # Verify token with Firebase Admin SDK
+            decoded_token = auth.verify_id_token(id_token)
             
-            if response.status_code == 200:
-                data = response.json()
-                users = data.get('users', [])
+            # Get user information from the decoded token
+            uid = decoded_token.get('uid')
+            
+            # Fetch additional user information
+            user_record = auth.get_user(uid)
+            
+            return {
+                'uid': user_record.uid,
+                'email': user_record.email,
+                'email_verified': user_record.email_verified,
+                'display_name': user_record.display_name,
+                'photo_url': user_record.photo_url,
+                'phone_number': user_record.phone_number,
+                'provider_id': user_record.provider_id if hasattr(user_record, 'provider_id') else None,
+                'created_at': user_record.user_metadata.creation_timestamp if user_record.user_metadata else None,
+                'last_login_at': user_record.user_metadata.last_sign_in_timestamp if user_record.user_metadata else None,
+            }
                 
-                if users:
-                    user_data = users[0]
-                    return {
-                        'uid': user_data.get('localId'),
-                        'email': user_data.get('email'),
-                        'email_verified': user_data.get('emailVerified', False),
-                        'display_name': user_data.get('displayName'),
-                        'photo_url': user_data.get('photoUrl'),
-                        'phone_number': user_data.get('phoneNumber'),
-                        'provider_id': user_data.get('providerId'),
-                        'created_at': user_data.get('createdAt'),
-                        'last_login_at': user_data.get('lastLoginAt'),
-                    }
-                else:
-                    logger.warning("No user data found in Firebase response")
-                    return None
-            else:
-                logger.error(f"Firebase verification failed: {response.status_code} - {response.text}")
-                return None
-                
-        except requests.RequestException as e:
-            logger.error(f"Error verifying Firebase token: {str(e)}")
+        except auth.InvalidIdTokenError as e:
+            logger.error(f"Invalid Firebase ID token: {str(e)}")
+            return None
+        except auth.ExpiredIdTokenError as e:
+            logger.error(f"Expired Firebase ID token: {str(e)}")
+            return None
+        except auth.RevokedIdTokenError as e:
+            logger.error(f"Revoked Firebase ID token: {str(e)}")
+            return None
+        except auth.CertificateFetchError as e:
+            logger.error(f"Error fetching Firebase certificates: {str(e)}")
             return None
         except Exception as e:
             logger.error(f"Unexpected error verifying Firebase token: {str(e)}")
@@ -152,16 +168,20 @@ class FirebaseAuthService:
                 username = f"{original_username}_{counter}"
                 counter += 1
             
+            # Split display name into first and last name
+            name_parts = (display_name or '').split(' ', 1) if display_name else ['', '']
+            first_name = name_parts[0] if len(name_parts) > 0 else ''
+            last_name = name_parts[1] if len(name_parts) > 1 else ''
+            
             user = User.objects.create_user(
                 username=username,
                 email=email,
                 password=None,  # Firebase users don't have Django passwords
-                full_name=display_name or '',
+                first_name=first_name,
+                last_name=last_name,
                 phone_number=phone_number or '',
                 is_active=True,
-                email_verified=email_verified,
-                firebase_uid=uid,
-                auth_provider='firebase'
+                firebase_uid=uid
             )
             
             logger.info(f"Created new Firebase user: {user.email}")
@@ -184,26 +204,22 @@ class FirebaseAuthService:
             
             # Update display name if different
             display_name = firebase_data.get('display_name')
-            if display_name and user.full_name != display_name:
-                user.full_name = display_name
-                updated = True
-            
-            # Update email verification status
-            email_verified = firebase_data.get('email_verified', False)
-            if user.email_verified != email_verified:
-                user.email_verified = email_verified
-                updated = True
+            if display_name:
+                name_parts = display_name.split(' ', 1)
+                first_name = name_parts[0] if len(name_parts) > 0 else ''
+                last_name = name_parts[1] if len(name_parts) > 1 else ''
+                
+                if user.first_name != first_name:
+                    user.first_name = first_name
+                    updated = True
+                if user.last_name != last_name:
+                    user.last_name = last_name
+                    updated = True
             
             # Update phone number if different
             phone_number = firebase_data.get('phone_number')
             if phone_number and user.phone_number != phone_number:
                 user.phone_number = phone_number
-                updated = True
-            
-            # Update photo URL if available (store in avatar field)
-            photo_url = firebase_data.get('photo_url')
-            if photo_url and user.avatar != photo_url:
-                user.avatar = photo_url
                 updated = True
             
             if updated:

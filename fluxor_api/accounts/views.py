@@ -1,4 +1,4 @@
-from rest_framework import status, generics, permissions
+from rest_framework import status, generics, permissions, serializers as rest_serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -63,7 +63,26 @@ class FirebaseUserRegistrationView(generics.CreateAPIView):
             with transaction.atomic():
                 user = serializer.save()
                 
-                # Create verification documents if images provided
+                # Create verification documents if KYC upload IDs provided
+                kyc_upload_ids = request.data.get('kyc_upload_ids', [])
+                if kyc_upload_ids:
+                    from file_uploads.models import KYCUpload
+                    for upload_id in kyc_upload_ids:
+                        try:
+                            kyc_upload = KYCUpload.objects.get(id=upload_id, user=user)
+                            VerificationDocument.objects.create(
+                                user=user,
+                                document_type=kyc_upload.document_type,
+                                file=kyc_upload.file,
+                                file_url=kyc_upload.get_file_url(),
+                                file_name=kyc_upload.original_filename,
+                                file_size=kyc_upload.file_size,
+                                mime_type=kyc_upload.mime_type
+                            )
+                        except KYCUpload.DoesNotExist:
+                            logger.warning(f"KYC upload {upload_id} not found for user {user.id}")
+                
+                # Backward compatibility: Create verification documents if image URLs provided
                 id_images = request.data.get('id_images', {})
                 for doc_type, image_url in id_images.items():
                     if image_url:
@@ -104,18 +123,44 @@ def convert_token(request):
         result = serializer.save()
         
         return Response({
-            'message': 'Token converted successfully',
+            'message': 'Sign in successful',
             'access_token': result['access_token'],
             'refresh_token': result['refresh_token'],
             'user': result['user']
         }, status=status.HTTP_200_OK)
         
+    except rest_serializers.ValidationError as e:
+        # Handle validation errors with user-friendly messages
+        logger.error(f"Token validation error: {str(e)}")
+        error_detail = e.detail if hasattr(e, 'detail') else str(e)
+        
+        # Extract user-friendly message
+        if 'token' in error_detail and isinstance(error_detail.get('token'), list):
+            error_msg = str(error_detail['token'][0]) if error_detail['token'] else 'Authentication failed'
+            
+            # Convert technical errors to user-friendly messages
+            if 'expired' in error_msg.lower():
+                message = 'Your session has expired. Please sign in again.'
+            elif 'invalid' in error_msg.lower() or 'failed to initialize' in error_msg.lower():
+                message = 'Authentication failed. Please sign in again.'
+            elif 'not found' in error_msg.lower():
+                message = 'Account not found. Please sign up first.'
+            else:
+                message = 'Authentication failed. Please try again.'
+        else:
+            message = 'Authentication failed. Please try again.'
+            
+        return Response({
+            'message': message,
+            'error': 'authentication_failed'
+        }, status=status.HTTP_401_UNAUTHORIZED)
+        
     except Exception as e:
         logger.error(f"Token conversion error: {str(e)}")
         return Response({
-            'message': 'Token conversion failed',
-            'error': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
+            'message': 'An error occurred during sign in. Please try again.',
+            'error': 'server_error'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
@@ -129,17 +174,34 @@ def refresh_token(request):
         result = serializer.save()
         
         return Response({
-            'message': 'Token refreshed successfully',
+            'message': 'Session refreshed successfully',
             'access_token': result['access_token'],
             'refresh_token': result['refresh_token']
         }, status=status.HTTP_200_OK)
         
+    except rest_serializers.ValidationError as e:
+        logger.error(f"Token validation error: {str(e)}")
+        error_detail = str(e.detail) if hasattr(e, 'detail') else str(e)
+        
+        # User-friendly messages
+        if 'expired' in error_detail.lower():
+            message = 'Your session has expired. Please sign in again.'
+        elif 'invalid' in error_detail.lower():
+            message = 'Invalid session. Please sign in again.'
+        else:
+            message = 'Session refresh failed. Please sign in again.'
+            
+        return Response({
+            'message': message,
+            'error': 'session_error'
+        }, status=status.HTTP_401_UNAUTHORIZED)
+        
     except Exception as e:
         logger.error(f"Token refresh error: {str(e)}")
         return Response({
-            'message': 'Token refresh failed',
-            'error': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
+            'message': 'An error occurred. Please sign in again.',
+            'error': 'server_error'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class UserProfileView(generics.RetrieveUpdateAPIView):

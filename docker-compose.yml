@@ -70,6 +70,10 @@ services:
       - NODE_ENV=development
       - PORT=5173
       - NEXT_PUBLIC_API_URL=http://localhost:8000/api
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+      - /app/.next
     depends_on:
       - api
     networks:
