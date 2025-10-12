@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { getWsUrl } from '@/config/api';
 
 export interface MarketData {
   symbol: string;
@@ -34,7 +35,7 @@ export const useMarketWebSocket = ({ symbol, enabled = true }: UseMarketWebSocke
       }
 
       // Create WebSocket connection
-      const wsUrl = `ws://localhost:8000/ws/market/${symbol}/`;
+      const wsUrl = `${getWsUrl()}/ws/market/${symbol}/`;
       console.log('Attempting to connect to WebSocket:', wsUrl);
       const ws = new WebSocket(wsUrl);
 

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { useMarketWebSocket } from '@/hooks/useMarketWebSocket';
 import { useTradeWebSocket } from '@/hooks/useTradeWebSocket';
+import { apiEndpoint } from '@/config/api';
 import { authService } from '@/services/authService';
 import OngoingTrades from '@/components/OngoingTrades';
 
@@ -143,7 +144,7 @@ export default function AdvancedOrdersPage() {
       if (!token || !selectedPair) return;
       
       // Fetch current price from backend (auto-switches between real/simulated based on admin settings)
-      const response = await authService.makeAuthenticatedRequest(`http://localhost:8000/api/admin/market/price-auto/?symbol=${selectedPair.base_currency}`);
+      const response = await authService.makeAuthenticatedRequest(apiEndpoint(`/api/admin/market/price-auto/?symbol=${selectedPair.base_currency}`));
       
       if (!response.ok) {
         console.error('Failed to fetch price');
@@ -292,7 +293,7 @@ export default function AdvancedOrdersPage() {
       }
       
       // Use authService which handles automatic token refresh
-      const response = await authService.makeAuthenticatedRequest('http://localhost:8000/api/balance/');
+      const response = await authService.makeAuthenticatedRequest(apiEndpoint('/api/balance/'));
       
       if (response.ok) {
         const data = await response.json();
@@ -338,7 +339,7 @@ export default function AdvancedOrdersPage() {
       
       // Fetch combined chart data (historical + current price)
       const response = await authService.makeAuthenticatedRequest(
-        `http://localhost:8000/api/admin/market/combined-chart/?symbol=${selectedPair.base_currency}&limit=${limit}&interval=${interval}`
+        apiEndpoint(`/api/admin/market/combined-chart/?symbol=${selectedPair.base_currency}&limit=${limit}&interval=${interval}`)
       );
       
       if (response.ok) {
@@ -410,7 +411,7 @@ export default function AdvancedOrdersPage() {
     
     try {
       const response = await authService.makeAuthenticatedRequest(
-        'http://localhost:8000/api/admin/market/store-data-point/',
+        apiEndpoint('/api/admin/market/store-data-point/'),
         {
           method: 'POST',
           body: JSON.stringify({
@@ -487,7 +488,7 @@ export default function AdvancedOrdersPage() {
         return;
       }
 
-      const response = await fetch('http://localhost:8000/api/trading/execute/', {
+      const response = await fetch(apiEndpoint('/api/trading/execute/'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -554,7 +555,7 @@ export default function AdvancedOrdersPage() {
     // Deduct from user balance via API
     try {
       const response = await authService.makeAuthenticatedRequest(
-        'http://localhost:8000/api/trading/deduct-balance/',
+        apiEndpoint('/api/trading/deduct-balance/'),
         {
           method: 'POST',
           headers: {
@@ -1184,7 +1185,7 @@ export default function AdvancedOrdersPage() {
                           if (confirm(`Stop this strategy? Remaining ${strategyPair.tradeSum} will be returned to your balance.`)) {
                             try {
                               const response = await authService.makeAuthenticatedRequest(
-                                `http://localhost:8000/api/trading/stop/${strategyPair.id}/`,
+                                apiEndpoint(`/api/trading/stop/${strategyPair.id}/`),
                                 {
                                   method: 'POST',
                                   headers: {

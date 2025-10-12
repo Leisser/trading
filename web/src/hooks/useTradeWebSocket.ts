@@ -3,6 +3,7 @@
  * Receives real-time trade_sum updates from backend
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { getWsUrl } from '@/config/api';
 
 interface TradeUpdate {
   type: 'trade_update' | 'trade_completed' | 'balance_update' | 'connection_established' | 'pong';
@@ -33,7 +34,7 @@ export function useTradeWebSocket(): UseTradeWebSocketReturn {
 
   const connect = useCallback(() => {
     try {
-      const ws = new WebSocket('ws://localhost:8000/ws/trades/');
+      const ws = new WebSocket(`${getWsUrl()}/ws/trades/`);
       
       ws.onopen = () => {
         console.log('✅ Trade WebSocket connected');

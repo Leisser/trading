@@ -7,6 +7,7 @@ import {
   UserCredential 
 } from 'firebase/auth';
 import { auth, googleProvider, githubProvider } from '@/config/firebase';
+import { getApiUrl } from '@/config/api';
 
 export interface UserRegistrationData {
   name: string;
@@ -32,7 +33,7 @@ export interface BackendUser {
 }
 
 class AuthService {
-  private baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+  private baseURL = process.env.NEXT_PUBLIC_API_URL || `${getApiUrl()}/api`;
 
   // Firebase Authentication Methods
   async registerWithEmail(data: UserRegistrationData): Promise<UserCredential> {
