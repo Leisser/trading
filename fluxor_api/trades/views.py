@@ -58,32 +58,26 @@ class StandardResultsSetPagination(PageNumberPagination):
     max_page_size = 100
 
 
-class CryptocurrencyListView(generics.ListAPIView):
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def CryptocurrencyListView(request):
     """
-    List all cryptocurrencies with filtering and search capabilities.
-    
-    Query parameters:
-    - search: Search by symbol or name
-    - category: Filter by category (custom filter in get_queryset)
-    - is_featured: Filter featured cryptocurrencies
-    - is_stablecoin: Filter stablecoins
-    - is_active: Filter active cryptocurrencies
-    - min_market_cap: Minimum market cap filter
-    - max_market_cap: Maximum market cap filter
-    - ordering: Order by field (rank, market_cap, price_change_24h, etc.)
+    List all cryptocurrencies - simplified version to avoid filter issues.
     """
-    queryset = Cryptocurrency.objects.all()
-    serializer_class = CryptocurrencySerializer  # Use full serializer instead of list serializer
-    permission_classes = [permissions.AllowAny]
-    pagination_class = StandardResultsSetPagination
-    filter_backends = []  # Disable all filters temporarily to isolate the issue
-    # filterset_class = CryptocurrencyFilterSet  # Use custom filter set to avoid JSONField issues
-    search_fields = ['symbol', 'name']
-    ordering_fields = ['rank', 'market_cap', 'current_price', 'price_change_24h', 'volume_24h']
-    ordering = ['rank']
-
-    def get_queryset(self):
-        return Cryptocurrency.objects.all()  # Simplified queryset
+    try:
+        # Get all cryptocurrencies
+        cryptocurrencies = Cryptocurrency.objects.all().order_by('rank')
+        
+        # Paginate results
+        paginator = StandardResultsSetPagination()
+        paginated_cryptos = paginator.paginate_queryset(cryptocurrencies, request)
+        
+        # Serialize
+        serializer = CryptocurrencySerializer(paginated_cryptos, many=True)
+        
+        return paginator.get_paginated_response(serializer.data)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class CryptocurrencyDetailView(generics.RetrieveAPIView):
