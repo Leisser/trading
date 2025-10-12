@@ -22,6 +22,17 @@ class CryptocurrencyFilterSet(FilterSet):
         model = Cryptocurrency
         fields = ['is_featured', 'is_stablecoin', 'is_active']
 
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def test_cryptocurrencies(request):
+    """Test endpoint to isolate the issue"""
+    try:
+        count = Cryptocurrency.objects.count()
+        return Response({'count': count, 'message': 'Success'}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 from .models import (
     Cryptocurrency, CryptoWallet, Wallet, Trade, Deposit, Withdrawal,
     CryptoPayment, CryptoIndex, IndexComponent, CryptoInvestment,

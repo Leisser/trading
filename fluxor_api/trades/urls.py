@@ -13,6 +13,7 @@ app_name = 'trades'
 urlpatterns = [
     # Cryptocurrency endpoints
     path('cryptocurrencies/', views.CryptocurrencyListView.as_view(), name='cryptocurrency_list'),
+    path('cryptocurrencies/test/', views.test_cryptocurrencies, name='test_cryptocurrencies'),
     path('cryptocurrencies/<str:symbol>/', views.CryptocurrencyDetailView.as_view(), name='cryptocurrency_detail'),
     path('cryptocurrencies/create/', views.CryptocurrencyCreateView.as_view(), name='cryptocurrency_create'),
     path('cryptocurrencies/<str:symbol>/update/', views.CryptocurrencyUpdateView.as_view(), name='cryptocurrency_update'),
