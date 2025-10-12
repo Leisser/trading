@@ -65,8 +65,8 @@ class CryptocurrencyListView(generics.ListAPIView):
     serializer_class = CryptocurrencyListSerializer
     permission_classes = [permissions.AllowAny]
     pagination_class = StandardResultsSetPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_class = CryptocurrencyFilterSet  # Use custom filter set to avoid JSONField issues
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]  # Temporarily disable DjangoFilterBackend
+    # filterset_class = CryptocurrencyFilterSet  # Use custom filter set to avoid JSONField issues
     search_fields = ['symbol', 'name']
     ordering_fields = ['rank', 'market_cap', 'current_price', 'price_change_24h', 'volume_24h']
     ordering = ['rank']
