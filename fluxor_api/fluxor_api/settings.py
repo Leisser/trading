@@ -201,9 +201,10 @@ SIMPLE_JWT = {
 
 # CORS settings
 # Read from environment variable, fallback to localhost for development
-CORS_ALLOWED_ORIGINS = config(
+import os
+CORS_ALLOWED_ORIGINS = os.environ.get(
     'CORS_ALLOWED_ORIGINS',
-    default="http://localhost:3000,http://localhost:3001,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:5173"
+    "http://localhost:3000,http://localhost:3001,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:5173"
 ).split(',')
 
 CORS_ALLOW_CREDENTIALS = True
